@@ -1,12 +1,26 @@
-# Ignore bawaan Fabric
+# Ignore bawaan Hyperledger Fabric
 fabric-samples/
 
-# Ignore dependensi Node.js
-client-app/node_modules/
+# Dependencies Node.js (frontend & backend)
+node_modules/
 
-# Ignore file hasil generate (biar gak menuhin repo)
+# File hasil generate
 client-app/cloud_payload_terenkripsi.json
 client-app/hasil_dekripsi_org2.json
 
-# Ignore file vendor Go
-chaincode-rujukan/vendor
+# Vendor Go
+chaincode-rujukan/vendor/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build
+dist/
+build/
+.next/
+
+# Logs
+*.log
+npm-debug.log*
