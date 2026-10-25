@@ -1,203 +1,145 @@
-
 import { useState } from "react";
 import { convertToFHIR } from "../utils/fhirConverter";
+import { encryptFHIR } from "../services/cryptoService";
 
-const initialForm = {
+const initial = {
   referralId: "",
   patientId: "",
   patientName: "",
   senderHospital: "Org1 - FKTP",
   receiverHospital: "Org2 - FKRTL",
   priority: "routine",
-  reason: ""
+  reason: "",
 };
 
-export default function Org1Dashboard() {
-  const [form, setForm] = useState(initialForm);
-  const [fhirData, setFhirData] = useState(null);
+export default function Org1Dashboard({
+  receiverPublicKey,
+  onSend,
+  keyStatus,
+}) {
+  const [form, setForm] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [showTechnical, setShowTechnical] = useState(false);
 
-  function updateField(field, value) {
-    setForm(prev => ({ ...prev, [field]: value }));
-    setFhirData(null);
+  function update(field, value) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setMessage("");
     setError("");
   }
 
-  function handleSubmit(e) {
-    e.preventDefault();
-
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+    setBusy(true);
     try {
-      const result = convertToFHIR(form);
-      setFhirData(result);
-      setError("");
-    } catch (err) {
-      setError(err.message);
-      setFhirData(null);
+      if (!receiverPublicKey) throw new Error("Kunci publik Org2 belum siap.");
+      const fhir = convertToFHIR(form);
+      const payload = await encryptFHIR(fhir, receiverPublicKey);
+      onSend({
+        referralId: form.referralId.trim(),
+        payload,
+        documentHash: payload.documentHash, // Hanya ledger tiruan di memori.
+        createdAt: new Date().toISOString(),
+      });
+      setMessage(
+        `Rujukan ${form.referralId.trim()} tersimpan di simulasi lokal dan telah dienkripsi. Buka Org2 untuk membacanya.`,
+      );
+      setForm(initial);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
     }
-  }
-
-  function downloadFHIR() {
-    if (!fhirData) return;
-
-    const blob = new Blob(
-      [JSON.stringify(fhirData, null, 2)],
-      { type: "application/fhir+json" }
-    );
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = `${form.referralId}.json`;
-    link.click();
-
-    URL.revokeObjectURL(url);
   }
 
   return (
     <section className="panel">
       <h2>Buat Rujukan Pasien</h2>
       <p className="muted">
-        Isi informasi berikut untuk menyiapkan rujukan.
-        Gunakan data pasien simulasi.
+        Isi data pasien simulasi. Konversi FHIR dan enkripsi berlangsung
+        otomatis di browser.
       </p>
-
-      <form onSubmit={handleSubmit} className="referral-form">
-        <h3>Informasi Pasien</h3>
-
+      <form className="referral-form" onSubmit={handleSubmit}>
+        <h3>Data Pasien</h3>
         <label>
-          Nomor Pasien
+          Nomor Pasien (dummy)
           <input
+            required
             value={form.patientId}
-            onChange={e =>
-              updateField("patientId", e.target.value)
-            }
-            placeholder="Contoh: PAT-001"
-            required
+            placeholder="PAT-001"
+            onChange={(e) => update("patientId", e.target.value)}
           />
         </label>
-
         <label>
-          Nama Pasien
+          Nama Pasien (dummy)
           <input
-            value={form.patientName}
-            onChange={e =>
-              updateField("patientName", e.target.value)
-            }
-            placeholder="Nama pasien dummy"
             required
+            value={form.patientName}
+            placeholder="Budi Santoso"
+            onChange={(e) => update("patientName", e.target.value)}
           />
         </label>
-
-        <h3>Informasi Rujukan</h3>
-
+        <h3>Data Rujukan</h3>
         <label>
           Nomor Rujukan
           <input
-            value={form.referralId}
-            onChange={e =>
-              updateField("referralId", e.target.value)
-            }
-            placeholder="Contoh: REF-001"
             required
+            value={form.referralId}
+            placeholder="REF-2026-001"
+            onChange={(e) => update("referralId", e.target.value)}
           />
         </label>
-
         <label>
-          Faskes Pengirim
-          <input
-            value={form.senderHospital}
-            readOnly
-          />
+          Faskes Pengirim <input value={form.senderHospital} readOnly />
         </label>
-
         <label>
-          Faskes Tujuan
-          <input
-            value={form.receiverHospital}
-            readOnly
-          />
+          Faskes Tujuan <input value={form.receiverHospital} readOnly />
         </label>
-
         <label>
-          Prioritas Rujukan
+          Prioritas
           <select
             value={form.priority}
-            onChange={e =>
-              updateField("priority", e.target.value)
-            }
+            onChange={(e) => update("priority", e.target.value)}
           >
-            <option value="routine">Biasa — Penanganan terjadwal</option>
-            <option value="urgent">Mendesak — Perlu penanganan segera</option>
+            <option value="routine">Biasa</option>
+            <option value="urgent">Mendesak</option>
           </select>
         </label>
-
         <label>
           Alasan Rujukan
           <textarea
-            value={form.reason}
-            onChange={e =>
-              updateField("reason", e.target.value)
-            }
-            placeholder="Jelaskan alasan pasien dirujuk..."
-            rows={4}
             required
+            rows={4}
+            value={form.reason}
+            placeholder="Alasan pasien dirujuk..."
+            onChange={(e) => update("reason", e.target.value)}
           />
         </label>
-
-        <button type="submit">
-          Siapkan Data Rujukan
+        <button type="submit" disabled={busy || !receiverPublicKey}>
+          {busy ? "Menyiapkan rujukan..." : "Siapkan & Kirim Rujukan (Demo)"}
         </button>
       </form>
-
+      {!receiverPublicKey && (
+        <p className="muted" role="status">
+          {keyStatus}
+        </p>
+      )}
+      {message && (
+        <div className="result success-note" role="status">
+          {message}
+        </div>
+      )}
       {error && (
-        <div className="result error">
+        <div className="result error" role="alert">
           {error}
         </div>
       )}
-
-      {fhirData && (
-        <div className="result">
-          <h3>Data Rujukan Siap</h3>
-          <p>
-            Informasi berhasil diubah menjadi
-            struktur HL7 FHIR JSON.
-          </p>
-
-          <p className="muted">
-            Rujukan belum dikirim. Enkripsi,
-            penyimpanan cloud, dan pencatatan
-            blockchain belum dijalankan.
-          </p>
-
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={downloadFHIR}
-          >
-            Unduh JSON FHIR
-          </button>
-
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() =>
-              setShowTechnical(!showTechnical)
-            }
-          >
-            {showTechnical
-              ? "Sembunyikan Detail Teknis"
-              : "Lihat Detail Teknis"}
-          </button>
-
-          {showTechnical && (
-            <pre className="json-preview">
-              {JSON.stringify(fhirData, null, 2)}
-            </pre>
-          )}
-        </div>
-      )}
+      <p className="muted small-note">
+        Belum terhubung ke MinIO atau Hyperledger Fabric. Pengiriman saat ini
+        hanya antarhalaman dalam satu sesi browser.
+      </p>
     </section>
   );
 }
