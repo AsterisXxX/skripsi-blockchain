@@ -4,6 +4,9 @@ fabric-samples/
 # Dependencies Node.js (frontend & backend)
 node_modules/
 
+# File build vite
+dist/
+
 # File hasil generate
 client-app/cloud_payload_terenkripsi.json
 client-app/hasil_dekripsi_org2.json

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 
 import { checkBackend } from "./services/api";
@@ -6,7 +6,13 @@ import { generateHospitalKeys } from "./services/cryptoService";
 
 import Org1Dashboard from "./pages/Org1Dashboard";
 import Org2Dashboard from "./pages/Org2Dashboard";
-import TestingDashboard from "./pages/TestingDashboard";
+
+const ENABLE_LAB =
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_LAB === "true";
+
+const TestingDashboard = ENABLE_LAB
+  ? lazy(() => import("./pages/TestingDashboard"))
+  : null;
 
 import "./App.css";
 import "./dashboard-separation.css";
@@ -14,7 +20,7 @@ import "./dashboard-separation.css";
 function HomePage() {
   return (
     <section className="panel">
-      <h2>MedReferral</h2>
+      <h2>NexusMed</h2>
       <p className="muted">
         Sistem Rujukan Medis Digital Berbasis Hybrid Blockchain-Cloud
       </p>
@@ -51,13 +57,17 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    checkBackend()
-      .then(() => {
-        if (active) setBackendStatus("Connected");
-      })
-      .catch(() => {
-        if (active) setBackendStatus("Disconnected");
-      });
+    if (import.meta.env.DEV) {
+      checkBackend()
+        .then(() => {
+          if (active) setBackendStatus("Connected");
+        })
+        .catch(() => {
+          if (active) setBackendStatus("Disconnected");
+        });
+    } else {
+      setBackendStatus("Demo Mode");
+    }
 
     generateHospitalKeys()
       .then((pair) => {
@@ -97,14 +107,16 @@ export default function App() {
     <div className="app-layout">
       <header className="app-header">
         <div>
-          <h1>MedReferral</h1>
+          <h1>NexusMed</h1>
           <p>Hybrid Blockchain-Cloud Medical Referral</p>
         </div>
 
         <div className="header-status">
           <span className="backend-status">API: {backendStatus}</span>
 
-          <span className="demo-badge">DATA SINTETIS · DEMO LOKAL</span>
+          <span className="demo-badge">
+            DATA SINTETIS · {import.meta.env.DEV ? "DEMO LOKAL" : "DEMO WEB"}
+          </span>
         </div>
       </header>
 
@@ -133,16 +145,20 @@ export default function App() {
             }
           />
 
-          <Route
-            path="/dev"
-            element={
-              <TestingDashboard
-                referrals={referrals}
-                receiverKeys={receiverKeys}
-                keyStatus={keyStatus}
-              />
-            }
-          />
+          {ENABLE_LAB && TestingDashboard && (
+            <Route
+              path="/dev"
+              element={
+                <Suspense fallback={<p>Memuat Developer Lab...</p>}>
+                  <TestingDashboard
+                    referrals={referrals}
+                    receiverKeys={receiverKeys}
+                    keyStatus={keyStatus}
+                  />
+                </Suspense>
+              }
+            />
+          )}
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
