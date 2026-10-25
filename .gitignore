@@ -24,3 +24,5 @@ build/
 # Logs
 *.log
 npm-debug.log*
+/minio/.env
+/backend/.env

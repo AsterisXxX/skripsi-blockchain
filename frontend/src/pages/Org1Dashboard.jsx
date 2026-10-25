@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { convertToFHIR } from "../utils/fhirConverter";
 import { encryptFHIR } from "../services/cryptoService";
+import { Link } from "react-router-dom";
 
 const initial = {
   referralId: "",
@@ -56,6 +57,9 @@ export default function Org1Dashboard({
 
   return (
     <section className="panel">
+      <Link to="/" className="back-link">
+        ← Kembali ke Beranda
+      </Link>
       <h2>Buat Rujukan Pasien</h2>
       <p className="muted">
         Isi data pasien simulasi. Konversi FHIR dan enkripsi berlangsung

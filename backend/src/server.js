@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 
+import referralRoutes from "./routes/referralRoutes.js";
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -11,7 +13,7 @@ app.use(
   }),
 );
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "10mb" }));
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -21,6 +23,8 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use("/api", referralRoutes);
+
 app.listen(PORT, "127.0.0.1", () => {
-  console.log(`Backend running on http://localhost:${PORT}`);
+  console.log(`Backend running at http://localhost:${PORT}`);
 });

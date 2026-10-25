@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { decryptFHIR } from "../services/cryptoService";
+import { Link } from "react-router-dom";
 
 export default function Org2Dashboard({ referrals, receiverPrivateKey }) {
   const [id, setId] = useState("");
@@ -41,6 +42,9 @@ export default function Org2Dashboard({ referrals, receiverPrivateKey }) {
 
   return (
     <section className="panel">
+      <Link to="/" className="back-link">
+        ← Kembali ke Beranda
+      </Link>
       <h2>Cari Rujukan Pasien</h2>
       <p className="muted">
         Masukkan nomor rujukan dari Org1 untuk melihat hasil verifikasi dan data
