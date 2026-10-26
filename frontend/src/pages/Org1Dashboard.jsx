@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { convertToFHIR } from "../utils/fhirConverter";
 import { encryptFHIR } from "../services/cryptoService";
+import { uploadReferral } from "../services/api";
 import { Link } from "react-router-dom";
 
 const initial = {
@@ -38,6 +39,17 @@ export default function Org1Dashboard({
       if (!receiverPublicKey) throw new Error("Kunci publik Org2 belum siap.");
       const fhir = convertToFHIR(form);
       const payload = await encryptFHIR(fhir, receiverPublicKey);
+
+      const referralId = form.referralId.trim();
+
+      if (import.meta.env.DEV) {
+        const result = await uploadReferral(referralId, payload);
+
+        if (result.documentHash !== payload.documentHash) {
+          throw new Error("Hash respons server tidak sesuai.");
+        }
+      }
+
       onSend({
         referralId: form.referralId.trim(),
         payload,
@@ -45,7 +57,9 @@ export default function Org1Dashboard({
         createdAt: new Date().toISOString(),
       });
       setMessage(
-        `Rujukan ${form.referralId.trim()} tersimpan di simulasi lokal dan telah dienkripsi. Buka Org2 untuk membacanya.`,
+        import.meta.env.DEV
+          ? `Rujukan ${referralId} berhasil dienkripsi dan disimpan ke MinIO.`
+          : `Rujukan ${referralId} berhasil dienkripsi dalam sesi demo browser.`,
       );
       setForm(initial);
     } catch (e) {

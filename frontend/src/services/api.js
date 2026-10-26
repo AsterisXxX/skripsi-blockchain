@@ -9,3 +9,50 @@ export async function checkBackend() {
 
   return response.json();
 }
+
+export async function uploadReferral(referralId, payload) {
+  if (!import.meta.env.DEV) {
+    throw new Error("Upload MinIO hanya tersedia pada development lokal.");
+  }
+
+  const response = await fetch(`${API_URL}/referrals`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      referralId,
+      payload,
+    }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      result.error || `Upload gagal dengan HTTP ${response.status}`,
+    );
+  }
+
+  return result;
+}
+
+export async function getStoredReferral(referralId) {
+  if (!import.meta.env.DEV) {
+    throw new Error("Pengambilan MinIO hanya tersedia pada development lokal.");
+  }
+
+  const response = await fetch(
+    `${API_URL}/referrals/${encodeURIComponent(referralId)}`,
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      result.error || `Download gagal dengan HTTP ${response.status}`,
+    );
+  }
+
+  return result;
+}
