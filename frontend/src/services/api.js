@@ -57,3 +57,47 @@ export async function getStoredReferral(referralId) {
 
   return result;
 }
+
+export async function verifyHybridReferral(referralId) {
+  if (!import.meta.env.DEV) {
+    throw new Error("Pengujian Fabric hanya tersedia pada development lokal.");
+  }
+
+  const response = await fetch(
+    `${API_URL}/referrals/${encodeURIComponent(referralId)}/verified`,
+  );
+
+  const result = await response.json();
+
+  if (!response.ok && result.status !== "integrity_failed") {
+    throw new Error(
+      result.error || `Verifikasi gagal: HTTP ${response.status}`,
+    );
+  }
+
+  return result;
+}
+
+export async function getVerifiedReferral(referralId) {
+  if (!import.meta.env.DEV) {
+    throw new Error("Penerimaan hybrid hanya tersedia pada development lokal.");
+  }
+
+  const response = await fetch(
+    `${API_URL}/referrals/${encodeURIComponent(referralId)}/verified`,
+  );
+
+  const result = await response.json();
+
+  if (!response.ok || result.verified !== true || !result.payload) {
+    if (result.status === "integrity_failed") {
+      throw new Error(
+        "Integritas gagal! Hash ciphertext berbeda dari ledger Fabric.",
+      );
+    }
+
+    throw new Error(result.error || "Rujukan belum berhasil diverifikasi.");
+  }
+
+  return result;
+}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { decryptFHIR } from "../services/cryptoService";
 import { Link } from "react-router-dom";
+import { getVerifiedReferral } from "../services/api";
 
 export default function Org2Dashboard({ referrals, receiverPrivateKey }) {
   const [id, setId] = useState("");
@@ -11,23 +12,46 @@ export default function Org2Dashboard({ referrals, receiverPrivateKey }) {
 
   async function handleSearch(event) {
     event.preventDefault();
+
     setError("");
     setRecord(null);
     setFhir(null);
     setBusy(true);
+
     try {
-      const found = referrals[id.trim()];
-      if (!found) throw new Error("Rujukan tidak ditemukan di sesi demo ini.");
-      if (!receiverPrivateKey) throw new Error("Kunci privat Org2 belum siap.");
+      if (!receiverPrivateKey) {
+        throw new Error("Kunci privat Org2 belum siap.");
+      }
+
+      const referralId = id.trim();
+
+      // Ambil ciphertext yang sudah diverifikasi
+      // terhadap ledger Hyperledger Fabric.
+      console.log("[Org2] Memulai verifikasi:", referralId);
+
+      const verified = await getVerifiedReferral(referralId);
+
+      console.log("[Org2] Verifikasi selesai:", verified.status);
+
+      console.log("[Org2] Memulai dekripsi...");
+
       const output = await decryptFHIR(
-        found.payload,
+        verified.payload,
         receiverPrivateKey,
-        found.documentHash,
+        verified.ledgerHash,
       );
-      setRecord(found);
+
+      console.log("[Org2] Dekripsi berhasil!");
+
+      setRecord({
+        referralId: verified.referralId,
+        payload: verified.payload,
+        documentHash: verified.ledgerHash,
+      });
+
       setFhir(output);
-    } catch (e) {
-      setError(e.message);
+    } catch (error) {
+      setError(error.message);
     } finally {
       setBusy(false);
     }
@@ -76,10 +100,12 @@ export default function Org2Dashboard({ referrals, receiverPrivateKey }) {
       )}
       {record && fhir && (
         <div className="referral-detail" role="status">
-          <div className="success-note result">
-            Hash cocok dengan pembanding lokal dan dokumen berhasil didekripsi.
-            Bukan verifikasi hash ledger Fabric.
-          </div>
+          <p className="muted small-note">
+            Mode development menggunakan verifikasi integritas MinIO dan
+            Hyperledger Fabric sebelum dekripsi lokal. Kunci privat penerima
+            masih bergantung pada sesi browser. Autentikasi pengguna dan akses
+            lintas perangkat belum tersedia.
+          </p>
           <h3>Ringkasan Rujukan FHIR R4</h3>
           <dl className="detail-grid">
             <dt>Nomor rujukan</dt>

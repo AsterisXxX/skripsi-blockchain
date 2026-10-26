@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { convertToFHIR } from "../utils/fhirConverter";
 import EncryptionTest from "../components/EncryptionTest";
+import { verifyHybridReferral } from "../services/api";
 
 const dummy = {
   referralId: "REF-DEMO-001",
@@ -26,6 +27,10 @@ export default function TestingDashboard({
   const [sample, setSample] = useState(null);
   const [error, setError] = useState("");
   const [showPlain, setShowPlain] = useState(false);
+  const [hybridId, setHybridId] = useState("");
+  const [hybridBusy, setHybridBusy] = useState(false);
+  const [hybridResult, setHybridResult] = useState(null);
+  const [hybridError, setHybridError] = useState("");
   function generateSample() {
     try {
       setSample(convertToFHIR(dummy));
@@ -35,6 +40,24 @@ export default function TestingDashboard({
       setError(e.message);
     }
   }
+
+  async function handleHybridVerify(event) {
+    event.preventDefault();
+
+    setHybridBusy(true);
+    setHybridResult(null);
+    setHybridError("");
+
+    try {
+      const result = await verifyHybridReferral(hybridId.trim());
+      setHybridResult(result);
+    } catch (error) {
+      setHybridError(error.message);
+    } finally {
+      setHybridBusy(false);
+    }
+  }
+
   return (
     <section className="panel">
       <div className="lab-heading">
@@ -70,6 +93,64 @@ export default function TestingDashboard({
       {sample && (
         <EncryptionTest key={sample.entry?.[0]?.fullUrl} fhirData={sample} />
       )}
+
+      <div className="result">
+        <h3>Pengujian Integritas Hybrid — MinIO + Fabric</h3>
+
+        <p className="muted">
+          Verifikasi SHA-256 ciphertext yang tersimpan di MinIO terhadap hash
+          referensi pada Hyperledger Fabric.
+        </p>
+
+        <form className="referral-form" onSubmit={handleHybridVerify}>
+          <label>
+            Nomor Rujukan
+            <input
+              required
+              value={hybridId}
+              placeholder="REF-HYBRID-003"
+              onChange={(event) => setHybridId(event.target.value)}
+            />
+          </label>
+
+          <button type="submit" disabled={hybridBusy}>
+            {hybridBusy ? "Memverifikasi..." : "Verifikasi Integritas"}
+          </button>
+        </form>
+
+        {hybridError && (
+          <div className="result error" role="alert">
+            {hybridError}
+          </div>
+        )}
+
+        {hybridResult && (
+          <div
+            className={
+              hybridResult.verified ? "result success-note" : "result error"
+            }
+            role="status"
+          >
+            <h3>
+              {hybridResult.verified
+                ? "PASS — Integritas Terverifikasi"
+                : "FAIL — Integritas Tidak Sesuai"}
+            </h3>
+
+            <p>Referral ID: {hybridResult.referralId}</p>
+
+            <p>Hash MinIO:</p>
+            <code style={{ overflowWrap: "anywhere" }}>
+              {hybridResult.calculatedHash}
+            </code>
+
+            <p>Hash Fabric:</p>
+            <code style={{ overflowWrap: "anywhere" }}>
+              {hybridResult.ledgerHash}
+            </code>
+          </div>
+        )}
+      </div>
       <h3>Ledger Simulasi (Memori Browser)</h3>
       <p className="muted">
         Pembanding hash di sini bukan data dari Hyperledger Fabric.

@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { createHash } from "node:crypto";
 import { minioClient, BUCKET, checkMinio } from "../config/minio.js";
-import { createReferralOnFabric } from "../services/fabricService.js";
+import {
+  createReferralOnFabric,
+  getReferralFromFabric,
+} from "../services/fabricService.js";
 
 const router = Router();
 
@@ -163,16 +166,17 @@ router.post("/referrals", async (req, res) => {
   }
 });
 
-router.get("/referrals/:id", async (req, res) => {
+router.get("/referrals/:id/verified", async (req, res) => {
+  const { id } = req.params;
+
+  if (!validId(id)) {
+    return res.status(400).json({
+      status: "invalid_id",
+      error: "Referral ID tidak valid.",
+    });
+  }
+
   try {
-    const { id } = req.params;
-
-    if (!validId(id)) {
-      return res.status(400).json({
-        error: "Referral ID tidak valid.",
-      });
-    }
-
     const stream = await minioClient.getObject(BUCKET, objectName(id));
 
     const chunks = [];
@@ -183,18 +187,75 @@ router.get("/referrals/:id", async (req, res) => {
 
     const document = JSON.parse(Buffer.concat(chunks).toString("utf8"));
 
-    res.json(document);
-  } catch (error) {
-    if (error.code === "NoSuchKey" || error.code === "NotFound") {
-      return res.status(404).json({
-        error: "Rujukan tidak ditemukan.",
+    if (
+      document.referralId !== id ||
+      typeof document.payload?.ciphertext !== "string"
+    ) {
+      return res.status(422).json({
+        status: "invalid_document",
+        error: "Struktur dokumen MinIO tidak valid.",
       });
     }
 
-    console.error("Download MinIO:", error.message);
+    const ciphertext = decodeBase64(document.payload.ciphertext);
 
-    res.status(500).json({
-      error: "Gagal mengambil ciphertext.",
+    const calculatedHash = createHash("sha256")
+      .update(ciphertext)
+      .digest("hex");
+
+    let ledger;
+
+    try {
+      ledger = await getReferralFromFabric(id);
+    } catch (error) {
+      console.error("Fabric verification:", error.message);
+
+      return res.status(503).json({
+        status: "ledger_unavailable",
+        error: "Hash referensi ledger tidak dapat diperoleh.",
+      });
+    }
+
+    const ledgerHash = ledger.recordHash;
+    const payloadHash = document.payload.documentHash;
+
+    const isValid =
+      ledger.referralId === id &&
+      calculatedHash === ledgerHash &&
+      calculatedHash === payloadHash;
+
+    if (!isValid) {
+      return res.status(409).json({
+        status: "integrity_failed",
+        referralId: id,
+        calculatedHash,
+        ledgerHash,
+        payloadHash,
+        verified: false,
+      });
+    }
+
+    return res.status(200).json({
+      status: "integrity_verified",
+      referralId: id,
+      calculatedHash,
+      ledgerHash,
+      verified: true,
+      payload: document.payload,
+    });
+  } catch (error) {
+    if (error.code === "NoSuchKey" || error.code === "NotFound") {
+      return res.status(404).json({
+        status: "not_found",
+        error: "Rujukan tidak ditemukan di MinIO.",
+      });
+    }
+
+    console.error("Hybrid verification:", error.message);
+
+    return res.status(500).json({
+      status: "verification_error",
+      error: "Verifikasi integritas gagal diproses.",
     });
   }
 });

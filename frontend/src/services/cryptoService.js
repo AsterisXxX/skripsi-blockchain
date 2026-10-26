@@ -115,9 +115,12 @@ export async function encryptFHIR(fhirData, receiverPublicKey) {
 }
 
 export async function decryptFHIR(payload, receiverPrivateKey, expectedHash) {
-  const ciphertext = fromBase64(payload.ciphertext);
+  console.log("[Crypto] 1. Mulai dekripsi");
 
+  const ciphertext = fromBase64(payload.ciphertext);
   const actualHash = await sha256(ciphertext);
+
+  console.log("[Crypto] 2. SHA-256 selesai");
 
   if (!expectedHash || actualHash !== expectedHash) {
     throw new Error("Integritas dokumen gagal! Hash SHA-256 tidak cocok.");
@@ -131,11 +134,15 @@ export async function decryptFHIR(payload, receiverPrivateKey, expectedHash) {
     [],
   );
 
+  console.log("[Crypto] 3. Import ephemeral public key selesai");
+
   const wrappingKey = await deriveWrappingKey(
     receiverPrivateKey,
     ephemeralPublicKey,
     fromBase64(payload.salt),
   );
+
+  console.log("[Crypto] 4. Derive wrapping key selesai");
 
   const rawAesKey = await subtle.decrypt(
     {
@@ -146,9 +153,13 @@ export async function decryptFHIR(payload, receiverPrivateKey, expectedHash) {
     fromBase64(payload.wrappedKey),
   );
 
+  console.log("[Crypto] 5. Unwrap AES key selesai");
+
   const aesKey = await subtle.importKey("raw", rawAesKey, "AES-GCM", false, [
     "decrypt",
   ]);
+
+  console.log("[Crypto] 6. Import AES key selesai");
 
   const plaintext = await subtle.decrypt(
     {
@@ -158,6 +169,8 @@ export async function decryptFHIR(payload, receiverPrivateKey, expectedHash) {
     aesKey,
     ciphertext,
   );
+
+  console.log("[Crypto] 7. Dekripsi AES-GCM selesai");
 
   return JSON.parse(decoder.decode(plaintext));
 }

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 
 import { checkBackend } from "./services/api";
-import { generateHospitalKeys } from "./services/cryptoService";
+import { getOrCreateHospitalKeys } from "./services/keyStorage";
 
 import Org1Dashboard from "./pages/Org1Dashboard";
 import Org2Dashboard from "./pages/Org2Dashboard";
@@ -69,22 +69,28 @@ export default function App() {
       setBackendStatus("Demo Mode");
     }
 
-    generateHospitalKeys()
-      .then((pair) => {
+    getOrCreateHospitalKeys()
+      .then(({ keys, source }) => {
         if (!active) return;
 
-        setReceiverKeys(pair);
-        setKeyStatus("Kunci demo Org2 siap");
+        setReceiverKeys(keys);
+
+        if (source === "indexeddb") {
+          setKeyStatus("Kunci Org2 dimuat dari IndexedDB");
+          console.log("[KeyStorage] Kunci Org2 dipulihkan.");
+        } else {
+          setKeyStatus("Kunci Org2 baru disimpan ke IndexedDB");
+          console.log("[KeyStorage] Kunci Org2 baru dibuat.");
+        }
       })
       .catch((error) => {
-        if (active) {
-          setKeyStatus(`Gagal menyiapkan kunci: ${error.message}`);
-        }
-      });
+        if (!active) return;
 
-    return () => {
-      active = false;
-    };
+        setReceiverKeys(null);
+        setKeyStatus(`Gagal memuat kunci Org2: ${error.message}`);
+
+        console.error("[KeyStorage]", error);
+      });
   }, []);
 
   function saveReferral({ referralId, payload, documentHash, createdAt }) {
