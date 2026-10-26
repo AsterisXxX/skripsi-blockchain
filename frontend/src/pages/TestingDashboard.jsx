@@ -8,8 +8,14 @@ const dummy = {
   patientName: "Pasien Simulasi",
   senderHospital: "Org1 - FKTP",
   receiverHospital: "Org2 - FKRTL",
+  targetUnit: "Poli Penyakit Dalam",
+  diagnosis: "Hipertensi (simulasi)",
+  complaints: "Pusing berulang (simulasi)",
+  examination: "Pemeriksaan tekanan darah dilakukan (simulasi)",
+  treatment: "Pemeriksaan awal telah dilakukan (simulasi)",
   priority: "routine",
-  reason: "Pemeriksaan lanjutan (simulasi).",
+  reason: "Evaluasi dokter spesialis (simulasi)",
+  consentConfirmed: true,
 };
 
 export default function TestingDashboard({
@@ -20,31 +26,28 @@ export default function TestingDashboard({
   const [sample, setSample] = useState(null);
   const [error, setError] = useState("");
   const [showPlain, setShowPlain] = useState(false);
-
   function generateSample() {
     try {
       setSample(convertToFHIR(dummy));
       setError("");
+      setShowPlain(false);
     } catch (e) {
       setError(e.message);
     }
   }
-
   return (
     <section className="panel">
       <div className="lab-heading">
         <div>
           <h2>Lab Pengujian — Developer</h2>
           <p className="muted">
-            Mode teknis untuk memeriksa plaintext, ciphertext, hash, serta
-            simulasi manipulasi.
+            Mode teknis untuk FHIR R4, ciphertext, hash, dan manipulasi lokal.
           </p>
         </div>
         <span className="demo-badge">HANYA DATA DUMMY</span>
       </div>
       <div className="result warning-note">
-        Mode pengujian ini sengaja dapat memperlihatkan data mentah. Jangan
-        gunakan data pasien nyata.
+        Data dan persetujuan hanya simulasi. Jangan gunakan data pasien nyata.
       </div>
       <div className="lab-toolbar">
         <button className="lab-button" type="button" onClick={generateSample}>
@@ -69,17 +72,15 @@ export default function TestingDashboard({
       )}
       <h3>Ledger Simulasi (Memori Browser)</h3>
       <p className="muted">
-        Hash di bawah belum berasal dari Hyperledger Fabric.
+        Pembanding hash di sini bukan data dari Hyperledger Fabric.
       </p>
       {Object.values(referrals).length === 0 ? (
-        <p className="muted">
-          Belum ada rujukan dari dashboard Org1 dalam sesi ini.
-        </p>
+        <p className="muted">Belum ada rujukan dalam sesi ini.</p>
       ) : (
         <div className="lab-records">
           {Object.values(referrals).map((item) => (
             <details key={item.referralId}>
-              <summary>{item.referralId} — detail ciphertext & hash</summary>
+              <summary>{item.referralId} — ciphertext & hash</summary>
               <pre className="json-preview">
                 {JSON.stringify(item, null, 2)}
               </pre>
@@ -88,8 +89,7 @@ export default function TestingDashboard({
         </div>
       )}
       <p className="muted small-note">
-        {receiverKeys ? "Kunci sesi simulasi Org2 siap." : keyStatus} Peragaan
-        lab ini terpisah dari pencatatan rujukan operasional.
+        {receiverKeys ? "Kunci sesi demo Org2 siap." : keyStatus}
       </p>
     </section>
   );

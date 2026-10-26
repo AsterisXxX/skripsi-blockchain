@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { convertToFHIR } from "../utils/fhirConverter";
 import { encryptFHIR } from "../services/cryptoService";
 import { uploadReferral } from "../services/api";
-import { Link } from "react-router-dom";
 
 const initial = {
   referralId: "",
@@ -10,8 +10,14 @@ const initial = {
   patientName: "",
   senderHospital: "Org1 - FKTP",
   receiverHospital: "Org2 - FKRTL",
+  targetUnit: "",
+  diagnosis: "",
+  complaints: "",
+  examination: "",
+  treatment: "",
   priority: "routine",
   reason: "",
+  consentConfirmed: false,
 };
 
 export default function Org1Dashboard({
@@ -39,26 +45,23 @@ export default function Org1Dashboard({
       if (!receiverPublicKey) throw new Error("Kunci publik Org2 belum siap.");
       const fhir = convertToFHIR(form);
       const payload = await encryptFHIR(fhir, receiverPublicKey);
-
       const referralId = form.referralId.trim();
-
+      // Preserve M06-A from commit 2b29b481: upload in Vite DEV only.
       if (import.meta.env.DEV) {
         const result = await uploadReferral(referralId, payload);
-
         if (result.documentHash !== payload.documentHash) {
           throw new Error("Hash respons server tidak sesuai.");
         }
       }
-
       onSend({
-        referralId: form.referralId.trim(),
+        referralId,
         payload,
-        documentHash: payload.documentHash, // Hanya ledger tiruan di memori.
+        documentHash: payload.documentHash,
         createdAt: new Date().toISOString(),
       });
       setMessage(
         import.meta.env.DEV
-          ? `Rujukan ${referralId} berhasil dienkripsi dan disimpan ke MinIO.`
+          ? `Rujukan ${referralId} berhasil dienkripsi dan disimpan ke MinIO (belum ke Fabric).`
           : `Rujukan ${referralId} berhasil dienkripsi dalam sesi demo browser.`,
       );
       setForm(initial);
@@ -69,6 +72,30 @@ export default function Org1Dashboard({
     }
   }
 
+  function input(label, field, placeholder = "", multiline = false) {
+    return (
+      <label key={field}>
+        {label}
+        {multiline ? (
+          <textarea
+            required
+            rows={3}
+            value={form[field]}
+            placeholder={placeholder}
+            onChange={(e) => update(field, e.target.value)}
+          />
+        ) : (
+          <input
+            required
+            value={form[field]}
+            placeholder={placeholder}
+            onChange={(e) => update(field, e.target.value)}
+          />
+        )}
+      </label>
+    );
+  }
+
   return (
     <section className="panel">
       <Link to="/" className="back-link">
@@ -76,45 +103,51 @@ export default function Org1Dashboard({
       </Link>
       <h2>Buat Rujukan Pasien</h2>
       <p className="muted">
-        Isi data pasien simulasi. Konversi FHIR dan enkripsi berlangsung
-        otomatis di browser.
+        Simulasi rujukan vertikal FKTP → FKRTL, rawat jalan non-gawat-darurat.
+        Data sintetis dikonversi ke HL7 FHIR R4 dan dienkripsi di browser.
       </p>
       <form className="referral-form" onSubmit={handleSubmit}>
-        <h3>Data Pasien</h3>
+        <h3>Identitas Pasien — Simulasi</h3>
+        {input("Nomor pasien (dummy)", "patientId", "PAT-001")}
+        {input("Nama pasien (dummy)", "patientName", "Pasien Simulasi")}
+        <h3>Tujuan Rujukan</h3>
+        {input("Nomor rujukan", "referralId", "REF-2026-001")}
         <label>
-          Nomor Pasien (dummy)
-          <input
-            required
-            value={form.patientId}
-            placeholder="PAT-001"
-            onChange={(e) => update("patientId", e.target.value)}
-          />
+          Faskes pengirim <input value={form.senderHospital} readOnly />
         </label>
         <label>
-          Nama Pasien (dummy)
-          <input
-            required
-            value={form.patientName}
-            placeholder="Budi Santoso"
-            onChange={(e) => update("patientName", e.target.value)}
-          />
+          Faskes penerima <input value={form.receiverHospital} readOnly />
         </label>
-        <h3>Data Rujukan</h3>
-        <label>
-          Nomor Rujukan
-          <input
-            required
-            value={form.referralId}
-            placeholder="REF-2026-001"
-            onChange={(e) => update("referralId", e.target.value)}
-          />
-        </label>
-        <label>
-          Faskes Pengirim <input value={form.senderHospital} readOnly />
-        </label>
-        <label>
-          Faskes Tujuan <input value={form.receiverHospital} readOnly />
-        </label>
+        {input(
+          "Unit layanan / poli tujuan",
+          "targetUnit",
+          "Poli Penyakit Dalam",
+        )}
+        <h3>Informasi Klinis (Data Sintetis)</h3>
+        {input(
+          "Diagnosis kerja / dugaan diagnosis",
+          "diagnosis",
+          "Hipertensi (simulasi)",
+        )}
+        {input(
+          "Keluhan utama",
+          "complaints",
+          "Keluhan sejak tiga hari lalu (simulasi)",
+          true,
+        )}
+        {input(
+          "Temuan pemeriksaan",
+          "examination",
+          "Ringkasan pemeriksaan (simulasi)",
+          true,
+        )}
+        {input(
+          "Tindakan yang sudah diberikan",
+          "treatment",
+          "Pemeriksaan fisik awal (simulasi)",
+          true,
+        )}
+        <h3>Permintaan Rujukan</h3>
         <label>
           Prioritas
           <select
@@ -122,21 +155,33 @@ export default function Org1Dashboard({
             onChange={(e) => update("priority", e.target.value)}
           >
             <option value="routine">Biasa</option>
-            <option value="urgent">Mendesak</option>
+            <option value="urgent">Mendesak (bukan alur IGD)</option>
           </select>
         </label>
-        <label>
-          Alasan Rujukan
-          <textarea
-            required
-            rows={4}
-            value={form.reason}
-            placeholder="Alasan pasien dirujuk..."
-            onChange={(e) => update("reason", e.target.value)}
+        {input(
+          "Alasan rujukan",
+          "reason",
+          "Memerlukan evaluasi dokter spesialis",
+          true,
+        )}
+        <label
+          style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}
+        >
+          <input
+            type="checkbox"
+            checked={form.consentConfirmed}
+            onChange={(e) => update("consentConfirmed", e.target.checked)}
+            style={{ width: "auto", marginTop: "0.25rem" }}
           />
+          Saya mengonfirmasi bahwa persetujuan rujukan pada skenario simulasi
+          telah dipenuhi.
         </label>
+        <p className="muted small-note">
+          Checkbox ini bukan bukti informed consent klinis dan tidak disimpan
+          sebagai resource FHIR Consent.
+        </p>
         <button type="submit" disabled={busy || !receiverPublicKey}>
-          {busy ? "Menyiapkan rujukan..." : "Siapkan & Kirim Rujukan (Demo)"}
+          {busy ? "Mengenkripsi & menyimpan..." : "Kirim Rujukan (Simulasi)"}
         </button>
       </form>
       {!receiverPublicKey && (
@@ -155,8 +200,9 @@ export default function Org1Dashboard({
         </div>
       )}
       <p className="muted small-note">
-        Belum terhubung ke MinIO atau Hyperledger Fabric. Pengiriman saat ini
-        hanya antarhalaman dalam satu sesi browser.
+        Mode development mengunggah ciphertext ke MinIO; mode web statis
+        menyimpan data hanya di browser. Verifikasi ledger Fabric belum
+        terintegrasi.
       </p>
     </section>
   );
