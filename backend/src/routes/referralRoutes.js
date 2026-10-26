@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createHash } from "node:crypto";
 import { minioClient, BUCKET, checkMinio } from "../config/minio.js";
+import { createReferralOnFabric } from "../services/fabricService.js";
 
 const router = Router();
 
@@ -39,11 +40,20 @@ router.get("/storage/health", async (req, res) => {
 
 router.post("/referrals", async (req, res) => {
   try {
-    const { referralId, payload } = req.body;
+    const { referralId, patientId, payload } = req.body;
 
     if (!validId(referralId)) {
       return res.status(400).json({
         error: "Referral ID tidak valid.",
+      });
+    }
+
+    if (
+      typeof patientId !== "string" ||
+      !/^[A-Za-z0-9_-]{1,80}$/.test(patientId)
+    ) {
+      return res.status(400).json({
+        error: "Patient ID sintetis tidak valid.",
       });
     }
 
@@ -110,12 +120,40 @@ router.post("/referrals", async (req, res) => {
       "Content-Type": "application/json",
     });
 
-    res.status(201).json({
-      status: "stored_offchain",
+    let ledger;
+
+    try {
+      ledger = await createReferralOnFabric({
+        referralId,
+        patientId,
+        receiverId: "Org2MSP",
+        documentHash: hash,
+        timestamp: document.storedAt,
+      });
+
+      // Pemeriksaan ulang terhadap data yang terbaca dari ledger.
+      // Kita akan menambah endpoint verifikasi penuh pada tahap berikutnya.
+    } catch (fabricError) {
+      console.error("Commit Fabric belum terkonfirmasi:", fabricError);
+
+      return res.status(202).json({
+        status: "pending_ledger",
+        referralId,
+        objectKey: key,
+        documentHash: hash,
+        message:
+          "Ciphertext tersimpan di MinIO, tetapi commit Fabric belum " +
+          "terkonfirmasi. Jangan mengirim ulang sebelum rekonsiliasi.",
+      });
+    }
+
+    return res.status(201).json({
+      status: "stored_hybrid",
       referralId,
       objectKey: key,
       documentHash: hash,
-      message: "Ciphertext tersimpan di MinIO.",
+      transactionId: ledger.transactionId,
+      message: "Ciphertext tersimpan di MinIO dan hash tercatat di Fabric.",
     });
   } catch (error) {
     console.error("Upload MinIO:", error.message);

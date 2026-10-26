@@ -48,9 +48,20 @@ export default function Org1Dashboard({
       const referralId = form.referralId.trim();
       // Preserve M06-A from commit 2b29b481: upload in Vite DEV only.
       if (import.meta.env.DEV) {
-        const result = await uploadReferral(referralId, payload);
+        const result = await uploadReferral(
+          referralId,
+          payload,
+          form.patientId.trim(),
+        );
         if (result.documentHash !== payload.documentHash) {
           throw new Error("Hash respons server tidak sesuai.");
+        }
+        if (result.status !== "stored_hybrid") {
+          throw new Error(
+            `Ciphertext tersimpan, tetapi ledger belum terkonfirmasi. ` +
+              `ID: ${referralId}. Jangan kirim ulang dengan ID baru; ` +
+              `periksa status transaksi terlebih dahulu.`,
+          );
         }
       }
       onSend({
@@ -61,7 +72,7 @@ export default function Org1Dashboard({
       });
       setMessage(
         import.meta.env.DEV
-          ? `Rujukan ${referralId} berhasil dienkripsi dan disimpan ke MinIO (belum ke Fabric).`
+          ? `Rujukan ${referralId} berhasil disimpan ke MinIO dan dicatat di Fabric.`
           : `Rujukan ${referralId} berhasil dienkripsi dalam sesi demo browser.`,
       );
       setForm(initial);

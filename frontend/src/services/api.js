@@ -10,7 +10,7 @@ export async function checkBackend() {
   return response.json();
 }
 
-export async function uploadReferral(referralId, payload) {
+export async function uploadReferral(referralId, payload, patientId) {
   if (!import.meta.env.DEV) {
     throw new Error("Upload MinIO hanya tersedia pada development lokal.");
   }
@@ -22,6 +22,7 @@ export async function uploadReferral(referralId, payload) {
     },
     body: JSON.stringify({
       referralId,
+      patientId,
       payload,
     }),
   });
