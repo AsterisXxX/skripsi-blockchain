@@ -3,7 +3,7 @@ import { decryptFHIR } from "../services/cryptoService";
 import { Link } from "react-router-dom";
 import { getVerifiedReferral } from "../services/api";
 
-export default function Org2Dashboard({ referrals, receiverPrivateKey }) {
+export default function Org2Dashboard({ receiverPrivateKey }) {
   const [id, setId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

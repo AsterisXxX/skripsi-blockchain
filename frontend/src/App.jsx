@@ -1,26 +1,55 @@
+
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 
-import { checkBackend } from "./services/api";
+import {
+  checkBackend,
+  getSession,
+  logout,
+} from "./services/api";
+
 import { getOrCreateHospitalKeys } from "./services/keyStorage";
 
+import LoginPage from "./pages/LoginPage";
 import Org1Dashboard from "./pages/Org1Dashboard";
 import Org2Dashboard from "./pages/Org2Dashboard";
 
+import "./App.css";
+import "./dashboard-separation.css";
+
 const ENABLE_LAB =
-  import.meta.env.DEV || import.meta.env.VITE_ENABLE_LAB === "true";
+  import.meta.env.DEV ||
+  import.meta.env.VITE_ENABLE_LAB === "true";
 
 const TestingDashboard = ENABLE_LAB
   ? lazy(() => import("./pages/TestingDashboard"))
   : null;
 
-import "./App.css";
-import "./dashboard-separation.css";
+function ProtectedRoute({ user, loading, role, children }) {
+  if (!import.meta.env.DEV) {
+    return children;
+  }
 
-function HomePage() {
+  if (loading) {
+    return <p className="muted">Memeriksa sesi login...</p>;
+  }
+
+  if (!user) {
+    return <Navigate to={`/login?role=${role}`} replace />;
+  }
+
+  if (user.role !== role) {
+    return <Navigate to={`/${user.role}`} replace />;
+  }
+
+  return children;
+}
+
+function HomePage({ user }) {
   return (
     <section className="panel">
       <h2>NexusMed</h2>
+
       <p className="muted">
         Sistem Rujukan Medis Digital Berbasis Hybrid Blockchain-Cloud
       </p>
@@ -28,13 +57,27 @@ function HomePage() {
       <h3>Pilih Fasilitas Kesehatan</h3>
 
       <div className="portal-grid">
-        <Link to="/org1" className="portal-card">
+        <Link
+          to={
+            import.meta.env.DEV && !user
+              ? "/login?role=org1"
+              : "/org1"
+          }
+          className="portal-card"
+        >
           <h3>FKTP — Pengirim</h3>
           <p>Membuat dan mengirim rujukan pasien.</p>
           <span>Masuk Dashboard →</span>
         </Link>
 
-        <Link to="/org2" className="portal-card">
+        <Link
+          to={
+            import.meta.env.DEV && !user
+              ? "/login?role=org2"
+              : "/org2"
+          }
+          className="portal-card"
+        >
           <h3>FKRTL — Penerima</h3>
           <p>Mencari dan menerima dokumen rujukan.</p>
           <span>Masuk Dashboard →</span>
@@ -49,9 +92,20 @@ function HomePage() {
 }
 
 export default function App() {
-  const [backendStatus, setBackendStatus] = useState("Checking...");
+  const [backendStatus, setBackendStatus] = useState(
+    import.meta.env.DEV ? "Checking..." : "Demo Mode",
+  );
+
+  const [user, setUser] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(
+    import.meta.env.DEV,
+  );
+
   const [receiverKeys, setReceiverKeys] = useState(null);
-  const [keyStatus, setKeyStatus] = useState("Menyiapkan kunci sesi demo...");
+  const [keyStatus, setKeyStatus] = useState(
+    "Menyiapkan kunci sesi demo...",
+  );
+
   const [referrals, setReferrals] = useState({});
 
   useEffect(() => {
@@ -65,8 +119,17 @@ export default function App() {
         .catch(() => {
           if (active) setBackendStatus("Disconnected");
         });
-    } else {
-      setBackendStatus("Demo Mode");
+
+      getSession()
+        .then((result) => {
+          if (active) setUser(result.user ?? null);
+        })
+        .catch(() => {
+          if (active) setUser(null);
+        })
+        .finally(() => {
+          if (active) setSessionLoading(false);
+        });
     }
 
     getOrCreateHospitalKeys()
@@ -77,10 +140,8 @@ export default function App() {
 
         if (source === "indexeddb") {
           setKeyStatus("Kunci Org2 dimuat dari IndexedDB");
-          console.log("[KeyStorage] Kunci Org2 dipulihkan.");
         } else {
           setKeyStatus("Kunci Org2 baru disimpan ke IndexedDB");
-          console.log("[KeyStorage] Kunci Org2 baru dibuat.");
         }
       })
       .catch((error) => {
@@ -88,14 +149,23 @@ export default function App() {
 
         setReceiverKeys(null);
         setKeyStatus(`Gagal memuat kunci Org2: ${error.message}`);
-
-        console.error("[KeyStorage]", error);
       });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  function saveReferral({ referralId, payload, documentHash, createdAt }) {
+  function saveReferral({
+    referralId,
+    payload,
+    documentHash,
+    createdAt,
+  }) {
     if (referrals[referralId]) {
-      throw new Error("Nomor rujukan sudah digunakan dalam sesi demo ini.");
+      throw new Error(
+        "Nomor rujukan sudah digunakan dalam sesi demo ini.",
+      );
     }
 
     setReferrals((prev) => ({
@@ -109,6 +179,16 @@ export default function App() {
     }));
   }
 
+  async function handleLogout() {
+    try {
+      await logout();
+      setUser(null);
+      setReferrals({});
+    } catch (error) {
+      alert(`Logout gagal: ${error.message}`);
+    }
+  }
+
   return (
     <div className="app-layout">
       <header className="app-header">
@@ -118,36 +198,85 @@ export default function App() {
         </div>
 
         <div className="header-status">
-          <span className="backend-status">API: {backendStatus}</span>
+          <span className="backend-status">
+            API: {backendStatus}
+          </span>
 
           <span className="demo-badge">
-            DATA SINTETIS · {import.meta.env.DEV ? "DEMO LOKAL" : "DEMO WEB"}
+            DATA SINTETIS ·{" "}
+            {import.meta.env.DEV ? "DEMO LOKAL" : "DEMO WEB"}
           </span>
+
+          {import.meta.env.DEV && user && (
+            <div className="auth-user">
+              <span>
+                {user.institution} · {user.username}
+              </span>
+              <button
+                type="button"
+                className="auth-logout"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route
+            path="/"
+            element={<HomePage user={user} />}
+          />
+
+          <Route
+            path="/login"
+            element={
+              import.meta.env.DEV ? (
+                sessionLoading ? (
+                  <p className="muted">Memeriksa sesi login...</p>
+                ) : user ? (
+                  <Navigate to={`/${user.role}`} replace />
+                ) : (
+                  <LoginPage onLogin={setUser} />
+                )
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
 
           <Route
             path="/org1"
             element={
-              <Org1Dashboard
-                receiverPublicKey={receiverKeys?.publicKey}
-                onSend={saveReferral}
-                keyStatus={keyStatus}
-              />
+              <ProtectedRoute
+                user={user}
+                loading={sessionLoading}
+                role="org1"
+              >
+                <Org1Dashboard
+                  receiverPublicKey={receiverKeys?.publicKey}
+                  onSend={saveReferral}
+                  keyStatus={keyStatus}
+                />
+              </ProtectedRoute>
             }
           />
 
           <Route
             path="/org2"
             element={
-              <Org2Dashboard
-                referrals={referrals}
-                receiverPrivateKey={receiverKeys?.privateKey}
-              />
+              <ProtectedRoute
+                user={user}
+                loading={sessionLoading}
+                role="org2"
+              >
+                <Org2Dashboard
+                  receiverPrivateKey={receiverKeys?.privateKey}
+                />
+              </ProtectedRoute>
             }
           />
 
@@ -155,18 +284,29 @@ export default function App() {
             <Route
               path="/dev"
               element={
-                <Suspense fallback={<p>Memuat Developer Lab...</p>}>
-                  <TestingDashboard
-                    referrals={referrals}
-                    receiverKeys={receiverKeys}
-                    keyStatus={keyStatus}
-                  />
-                </Suspense>
+                <ProtectedRoute
+                  user={user}
+                  loading={sessionLoading}
+                  role="org2"
+                >
+                  <Suspense
+                    fallback={<p>Memuat Developer Lab...</p>}
+                  >
+                    <TestingDashboard
+                      referrals={referrals}
+                      receiverKeys={receiverKeys}
+                      keyStatus={keyStatus}
+                    />
+                  </Suspense>
+                </ProtectedRoute>
               }
             />
           )}
 
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route
+            path="*"
+            element={<Navigate to="/" replace />}
+          />
         </Routes>
       </main>
     </div>

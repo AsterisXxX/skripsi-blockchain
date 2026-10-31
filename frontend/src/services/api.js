@@ -1,13 +1,48 @@
 const API_URL = "http://localhost:3001/api";
 
-export async function checkBackend() {
-  const response = await fetch(`${API_URL}/health`);
+async function request(path, options = {}) {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...options.headers,
+    },
+  });
+
+  const result = await response.json();
 
   if (!response.ok) {
-    throw new Error("Backend tidak merespons");
+    const error = new Error(
+      result.error || `Request gagal: HTTP ${response.status}`,
+    );
+    error.status = response.status;
+    error.data = result;
+    throw error;
   }
 
-  return response.json();
+  return result;
+}
+
+export async function checkBackend() {
+  return request("/health");
+}
+
+export async function login(username, password) {
+  return request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function getSession() {
+  return request("/auth/me");
+}
+
+export async function logout() {
+  return request("/auth/logout", {
+    method: "POST",
+  });
 }
 
 export async function uploadReferral(referralId, payload, patientId) {
@@ -15,27 +50,10 @@ export async function uploadReferral(referralId, payload, patientId) {
     throw new Error("Upload MinIO hanya tersedia pada development lokal.");
   }
 
-  const response = await fetch(`${API_URL}/referrals`, {
+  return request("/referrals", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      referralId,
-      patientId,
-      payload,
-    }),
+    body: JSON.stringify({ referralId, patientId, payload }),
   });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      result.error || `Upload gagal dengan HTTP ${response.status}`,
-    );
-  }
-
-  return result;
 }
 
 export async function getStoredReferral(referralId) {
@@ -43,19 +61,7 @@ export async function getStoredReferral(referralId) {
     throw new Error("Pengambilan MinIO hanya tersedia pada development lokal.");
   }
 
-  const response = await fetch(
-    `${API_URL}/referrals/${encodeURIComponent(referralId)}`,
-  );
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      result.error || `Download gagal dengan HTTP ${response.status}`,
-    );
-  }
-
-  return result;
+  return request(`/referrals/${encodeURIComponent(referralId)}`);
 }
 
 export async function verifyHybridReferral(referralId) {
@@ -63,19 +69,16 @@ export async function verifyHybridReferral(referralId) {
     throw new Error("Pengujian Fabric hanya tersedia pada development lokal.");
   }
 
-  const response = await fetch(
-    `${API_URL}/referrals/${encodeURIComponent(referralId)}/verified`,
-  );
-
-  const result = await response.json();
-
-  if (!response.ok && result.status !== "integrity_failed") {
-    throw new Error(
-      result.error || `Verifikasi gagal: HTTP ${response.status}`,
+  try {
+    return await request(
+      `/referrals/${encodeURIComponent(referralId)}/verified`,
     );
+  } catch (error) {
+    if (error.data?.status === "integrity_failed") {
+      return error.data;
+    }
+    throw error;
   }
-
-  return result;
 }
 
 export async function getVerifiedReferral(referralId) {
@@ -83,20 +86,24 @@ export async function getVerifiedReferral(referralId) {
     throw new Error("Penerimaan hybrid hanya tersedia pada development lokal.");
   }
 
-  const response = await fetch(
-    `${API_URL}/referrals/${encodeURIComponent(referralId)}/verified`,
-  );
+  let result;
 
-  const result = await response.json();
-
-  if (!response.ok || result.verified !== true || !result.payload) {
-    if (result.status === "integrity_failed") {
+  try {
+    result = await request(
+      `/referrals/${encodeURIComponent(referralId)}/verified`,
+    );
+  } catch (error) {
+    if (error.data?.status === "integrity_failed") {
       throw new Error(
         "Integritas gagal! Hash ciphertext berbeda dari ledger Fabric.",
+        { cause: error },
       );
     }
+    throw error;
+  }
 
-    throw new Error(result.error || "Rujukan belum berhasil diverifikasi.");
+  if (result.verified !== true || !result.payload) {
+    throw new Error("Rujukan belum berhasil diverifikasi.");
   }
 
   return result;

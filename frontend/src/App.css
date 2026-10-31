@@ -394,3 +394,52 @@ input {
 .back-link:hover {
   text-decoration: underline;
 }
+
+
+.auth-panel {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.auth-panel h2 {
+  color: #0f766e;
+}
+
+.auth-panel .referral-form {
+  margin-top: 24px;
+}
+
+.auth-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.auth-logout {
+  padding: 9px 14px;
+  background: #ffffff;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.auth-logout:hover {
+  background: #fef2f2;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .auth-user {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
