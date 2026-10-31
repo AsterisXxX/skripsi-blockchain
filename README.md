@@ -1,3 +1,56 @@
+# NexusMed — Hybrid Blockchain–Cloud Medical Referrals
+
+## Current implementation status — 1 November 2026
+
+> **NexusMed is a local research Proof of Concept, not a clinical or production service.** This section supersedes the older dated status snapshots below. All referrals used in tests are synthetic. Do not expose the Express/Fabric/MinIO services publicly without a separate security review.
+
+### Host migration and restored hybrid storage
+
+- Migrated from previous Windows/WSL i9 host to new Windows/WSL i7 host without resetting the original Fabric channel. Six migration archives passed SHA-256 verification; Org1, Org2 and orderer ledger volumes and MSP/TLS materials were recovered. Existing `referralchannel` was recovered at height **22** with chaincode `rujukan` **v1.1, sequence 3**.
+- Restored MinIO bucket `medical-referrals` with **6 existing ciphertext objects**; backend `GET /api/storage/health` returned **HTTP 200** on localhost:3001.
+- Existing encrypted referral `REF-HYBRID-003` was verified on the new host: its MinIO ciphertext SHA-256 matched the Fabric `recordHash` (`5e8db78607d3c85aaf5eb73ab589c0706aab9df948d76c91d67f70ddbcd13722`). This confirms integrity for that existing object, **not** decryption on a new browser/profile.
+- React Vite development build and localhost frontend were confirmed working on the new host. Public Cloudflare Tunnel availability was **not reverified** after migration.
+
+### Hyperledger Fabric three-organization network
+
+- The real Fabric consortium now contains **Org1MSP, Org2MSP and Org3MSP** on the existing `referralchannel`. Org3 has its own Fabric CA, MSP/TLS material, `peer0.org3.example.com` and anchor peer at port `11051`.
+- Org3 membership was submitted via a channel configuration update signed by Org1 and Org2 and committed; Org3 joined and synchronized successfully.
+- Chaincode `rujukan` **v1.1 / sequence 3** is installed on Org3 using the exact package exported from Org1, ID `rujukan_1.1:97df5f45d639f2e18baa76ab78e6124b51a828c0b7a903c778be4c2b27f254a9`. Lifecycle approvals: **Org1=true, Org2=true, Org3=true**. No recommit was needed.
+- Org3 `GetReferral` verified historic `REF-HYBRID-003` with an identical `recordHash`; the Node Fabric SDK wrote and read two new synthetic **Fabric-only** records, using Org1+Org2 endorsements. Org3 subsequently read `REF-NODE-7ccc3992-c7d7-4f6e-8a9e-64df0a38e381` and matched the new hash `91bc9b7f174fb32be2588c77d248732a05fddfce4ba1757e707e9b87181a04de`.
+- **Latest verified ledger height: 27**. The two `REF-NODE-*` test records are **on-chain only** and have no corresponding MinIO ciphertext object; they must not be described as full hybrid E2EE test results.
+- The default Fabric application endorsement policy resolves to a majority of three organizations (**2 of 3**). Current Node SDK writes explicitly request endorsements from Org1 and Org2. This succeeded in the tested current Org1→Org2 flow; it is **not dynamic sender/receiver support**.
+
+### Application authentication and key-management boundary
+
+- Express implements server-side local login, session routes (`/api/auth/login`, `/api/auth/me`, `/api/auth/logout`) and role middleware. Org1 POST referral and Org2 verified retrieval are guarded. Org2 authenticated access and `integrity_verified` retrieval were verified locally after migration.
+- **React login form, session-aware route guards and logout UX are not implemented.** The frontend can show `Login diperlukan` because the API correctly requires a session.
+- The backend Fabric gateway still uses an **Org1 admin MSP identity**, not a different MSP identity per logged-in application user. `CreateReferral` still hardcodes the sender as Org1 and receiver as Org2.
+- Browser `CryptoKey` persistence via IndexedDB existed before migration; refresh/decrypt was user-reported as working previously, but **post-migration new-origin/profile decryption has not yet been validated**. Non-extractable private keys do not migrate with the Git repository or Fabric backups.
+- **Application administrator role assignment, institute registry, role approval/revocation and audit logging are planned**, not implemented. Org3 does not automatically become a consortium authority or receive a decryption key merely by joining Fabric. A distinct AuthorityMSP remains only a proposed future governance expansion requiring supervisor approval.
+
+### Milestone crosswalk and next gates
+
+| Milestone | Status as of 1 Nov | Remaining gate |
+| --- | --- | --- |
+| M06 — Full FE/BE/MinIO/Fabric | Testing (~80%) | New authenticated browser-origin synthetic E2E: encrypt→upload→ledger→verified retrieval→decrypt, plus failure handling |
+| M07 — Authentication/MSP/ECC | In Progress (~55%) | React login UI, route guards, negative 401/403, user-to-institution MSP binding, key recovery/rotation |
+| M11 — Multi-Org Fabric | Testing (~90%) | Formal negative governance/discovery tests, evidence screenshot bundle and supervisor review |
+| M12 — Authority/Governance | Planned (0%) | Define admin scopes, users/institutions/roles, assign/revoke/audit; request supervisor scope decision |
+| M13 — Multi-Org Hybrid/E2EE | Planned (0%) | Org3 signer/sender, dynamic recipient, per-organization keys, verified E2E and negative tests |
+
+**Current research priorities:** Freeze and back up migrated state, finish M07 React login UI, rerun M06 fresh synthetic hybrid test, plan M12 admin role assignment with the supervisor, then implement M13 dynamic multi-institution flow. Also track tampering, `pending_ledger` reconciliation, FHIR validation, dependency vulnerabilities, and Caliper separately.
+
+**Security:** Never commit `backend/.env`, `minio/.env`, CA/MSP keys, blockchain volumes, session cookies, patient records, or backup archives. Do not execute `network.sh down`, `docker compose down -v`, `--remove-orphans`, or replay the Org3 channel-join script against the recovered network.
+
+**Evidence and decisions:** [NexusMed Thesis Hub](https://app.notion.com/p/4046a2b0c93081c2badbede083a112e8) · [Migration wrap-up](https://app.notion.com/p/40a6a2b0c93081fca70be5899162bca0) · [Evidence register](https://app.notion.com/p/40a6a2b0c9308115b0b5ee1c377128cc) · [M11](https://app.notion.com/p/4096a2b0c93081faa2aef7f38dd43214).
+
+---
+
+
+---
+
+## Historical README (snapshot as of 26 October 2026)
+
 # 🏥 NexusMed — Aplikasi Rujukan Medis Digital Berbasis Hybrid Blockchain–Cloud
 
 > **Status: Proof of Concept (PoC), dalam pengembangan — terakhir diaudit 26 Oktober 2026.** Seluruh contoh menggunakan **data pasien sintetis**, bukan data klinis nyata. **Belum aman untuk deployment klinis/produksi.** Status implementasi, hasil pengujian, dan rencana dibedakan dengan sengaja.
