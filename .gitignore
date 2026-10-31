@@ -29,3 +29,10 @@ build/
 npm-debug.log*
 /minio/.env
 /backend/.env
+
+# mds file
+GITHUB_README_UPDATE_INSTRUCTIONS.md
+PROGRESS_DOSBING_2026-11-01.md
+README.md.before-20261101.bak
+README_STATUS_2026-11-01.md
+RISKS_AND_DECISIONS_2026-11-01.md
