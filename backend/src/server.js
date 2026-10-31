@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
+import authRoutes from "./routes/authRoutes.js";
 
 import referralRoutes from "./routes/referralRoutes.js";
 
@@ -10,10 +11,29 @@ const PORT = process.env.PORT || 3001;
 app.use(
   cors({
     origin: "http://localhost:5173",
+    credentials: true,
   }),
 );
 
 app.use(express.json({ limit: "10mb" }));
+
+app.use((req, res, next) => {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    return next();
+  }
+
+  const origin = req.headers.origin;
+
+  if (origin && origin !== "http://localhost:5173") {
+    return res.status(403).json({
+      error: "Origin tidak diizinkan.",
+    });
+  }
+
+  next();
+});
+
+app.use("/api/auth", authRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

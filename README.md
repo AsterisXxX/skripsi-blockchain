@@ -4,9 +4,9 @@
 
 NexusMed memodelkan pengiriman rujukan dari **FKTP (Org1)** ke **FKRTL (Org2)**. Data rujukan berbentuk **FHIR R4 Bundle sintetis**, dienkripsi di browser menggunakan **AES-256-GCM**; kunci AES dibungkus dengan kunci turunan **ECDH P-256 + HKDF-SHA256**. Ciphertext disimpan **off-chain di MinIO**, sedangkan metadata rujukan dan **hash SHA-256 dari _ciphertext_** dicatat **on-chain di Hyperledger Fabric**.
 
-- **GitHub:** https://github.com/AsterisXxX/skripsi-blockchain
-- **Notion — Milestones & Evidence:** https://app.notion.com/p/4046a2b0c93081c2badbede083a112e8
-- **Demo frontend statis:** https://test.nexusmed.my.id _(ketersediaan saat ini tidak diverifikasi dalam audit; akses dapat dibatasi)_
+- **GitHub:** [AsterisXxX/skripsi-blockchain](https://github.com/AsterisXxX/skripsi-blockchain).
+- **Notion — Milestones & Evidence:** [NexusMed Thesis Development & Research Hub (Notion)](https://app.notion.com/p/4046a2b0c93081c2badbede083a112e8).
+- **Demo frontend statis:** [test.nexusmed.my.id](https://test.nexusmed.my.id) _(ketersediaan saat ini tidak diverifikasi dalam audit; akses dapat dibatasi)_
 - **Commit acuan audit:** [`e40142f106b450892c9fa840236d3057664e0474`](https://github.com/AsterisXxX/skripsi-blockchain/commit/e40142f106b450892c9fa840236d3057664e0474) (`feat: indexedDB implementation`)
 
 ## 1. Ringkasan status dan batasan

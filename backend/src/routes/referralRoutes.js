@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createHash } from "node:crypto";
 import { minioClient, BUCKET, checkMinio } from "../config/minio.js";
+import { requireRole } from "../middleware/auth.js";
 import {
   createReferralOnFabric,
   getReferralFromFabric,
@@ -41,7 +42,7 @@ router.get("/storage/health", async (req, res) => {
   }
 });
 
-router.post("/referrals", async (req, res) => {
+router.post("/referrals", requireRole("org1"), async (req, res) => {
   try {
     const { referralId, patientId, payload } = req.body;
 
@@ -166,7 +167,7 @@ router.post("/referrals", async (req, res) => {
   }
 });
 
-router.get("/referrals/:id/verified", async (req, res) => {
+router.get("/referrals/:id/verified", requireRole("org2"), async (req, res) => {
   const { id } = req.params;
 
   if (!validId(id)) {
