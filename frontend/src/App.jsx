@@ -21,10 +21,6 @@ const TestingDashboard = ENABLE_LAB
   : null;
 
 function ProtectedRoute({ user, loading, role, children }) {
-  if (!import.meta.env.DEV) {
-    return children;
-  }
-
   if (loading) {
     return <p className="muted">Memeriksa sesi login...</p>;
   }
@@ -53,7 +49,7 @@ function HomePage({ user }) {
 
       <div className="portal-grid">
         <Link
-          to={import.meta.env.DEV && !user ? "/login?role=org1" : "/org1"}
+          to={!user ? "/login?role=org1" : "/org1"}
           className="portal-card"
         >
           <h3>FKTP — Pengirim</h3>
@@ -62,7 +58,7 @@ function HomePage({ user }) {
         </Link>
 
         <Link
-          to={import.meta.env.DEV && !user ? "/login?role=org2" : "/org2"}
+          to={!user ? "/login?role=org2" : "/org2"}
           className="portal-card"
         >
           <h3>FKRTL — Penerima</h3>
@@ -80,11 +76,11 @@ function HomePage({ user }) {
 
 export default function App() {
   const [backendStatus, setBackendStatus] = useState(
-    import.meta.env.DEV ? "Checking..." : "Demo Mode",
+    "Checking...",
   );
 
   const [user, setUser] = useState(null);
-  const [sessionLoading, setSessionLoading] = useState(import.meta.env.DEV);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
   const [receiverKeys, setReceiverKeys] = useState(null);
   const [keyStatus, setKeyStatus] = useState("Menyiapkan kunci sesi demo...");
@@ -94,7 +90,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    if (import.meta.env.DEV) {
+    {
       checkBackend()
         .then(() => {
           if (active) setBackendStatus("Connected");
@@ -180,7 +176,7 @@ export default function App() {
             DATA SINTETIS · {import.meta.env.DEV ? "DEMO LOKAL" : "DEMO WEB"}
           </span>
 
-          {import.meta.env.DEV && user && (
+          {user && (
             <div className="auth-user">
               <span>
                 {user.institution} · {user.username}
@@ -204,16 +200,12 @@ export default function App() {
           <Route
             path="/login"
             element={
-              import.meta.env.DEV ? (
-                sessionLoading ? (
-                  <p className="muted">Memeriksa sesi login...</p>
-                ) : user ? (
-                  <Navigate to={`/${user.role}`} replace />
-                ) : (
-                  <LoginPage onLogin={setUser} />
-                )
+              sessionLoading ? (
+                <p className="muted">Memeriksa sesi login...</p>
+              ) : user ? (
+                <Navigate to={`/${user.role}`} replace />
               ) : (
-                <Navigate to="/" replace />
+                <LoginPage onLogin={setUser} />
               )
             }
           />
@@ -261,7 +253,7 @@ export default function App() {
             />
           )}
 
-          {import.meta.env.DEV && (
+          {(
             <Route
               path="/consortium_admin"
               element={

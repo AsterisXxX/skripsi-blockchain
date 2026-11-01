@@ -9,7 +9,11 @@ import referralRoutes from "./routes/referralRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const allowedOrigins = ["http://localhost:5173", "http://localhost:8080"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "https://nexusmed.my.id",
+];
 
 app.use(
   cors({
