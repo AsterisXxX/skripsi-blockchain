@@ -3,6 +3,7 @@ import cors from "cors";
 import "dotenv/config";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import keyRoutes from "./routes/keyRoutes.js";
 
 import referralRoutes from "./routes/referralRoutes.js";
 
@@ -42,6 +43,7 @@ app.use((req, res, next) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/keys", keyRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

@@ -7,7 +7,27 @@ import { join } from "node:path";
 const databaseDir = join(homedir(), ".local", "share", "nexusmed");
 mkdirSync(databaseDir, { recursive: true, mode: 0o700 });
 
-const databasePath = join(databaseDir, "auth.db");
+const isTest = process.env.NODE_ENV === "test";
+
+if (
+  isTest &&
+  process.env.NEXUSMED_TEST_DATABASE !== "isolated"
+) {
+  throw new Error(
+    "Test mode memerlukan database terisolasi."
+  );
+}
+
+const databasePath = isTest
+  ? join(databaseDir, "test", "auth-test.db")
+  : join(databaseDir, "auth.db");
+
+if (isTest) {
+  mkdirSync(join(databaseDir, "test"), {
+    recursive: true,
+    mode: 0o700
+  });
+}
 
 const db = new Database(databasePath);
 
