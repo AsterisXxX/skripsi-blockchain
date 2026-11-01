@@ -9,9 +9,11 @@ import referralRoutes from "./routes/referralRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const allowedOrigins = ["http://localhost:5173", "http://localhost:8080"];
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true,
   }),
 );
@@ -25,7 +27,7 @@ app.use((req, res, next) => {
 
   const origin = req.headers.origin;
 
-  if (origin !== "http://localhost:5173") {
+  if (!allowedOrigins.includes(origin)) {
     return res.status(403).json({
       error: "Origin tidak diizinkan.",
     });
