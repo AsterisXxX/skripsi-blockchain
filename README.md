@@ -1,5 +1,57 @@
 # NexusMed — Hybrid Blockchain–Cloud Medical Referrals
 
+## Status terverifikasi — 2 November 2026
+
+**Baseline:** GitHub `main` commit `7a4a530`.
+**Kategori:** Research Proof of Concept, data sintetis.
+**Notion:** [Audit M01–M13](https://app.notion.com/p/40b6a2b0c93081b1b656f6cfa828794b).
+
+### Implementasi yang telah dicapai
+
+- **M01–M02:** Hyperledger Fabric, chaincode Go, React, Express, dashboard Org1/Org2 dan converter HL7 FHIR.
+- **M03–M04:** Client-side AES-256-GCM, ECDH P-256/HKDF, SHA-256 ciphertext, MinIO off-chain dan pencatatan hash pada Fabric.
+- **M05–M06:** Nginx/Cloudflare deployment dan integrasi hybrid lokal. Pengujian rujukan sintetis `REF-AUTH-001` dilaporkan berhasil didekripsi pada UI Org2 terautentikasi.
+- **M07:** Login React, session-based authentication, public key registry dan Proof of Possession. Commit `7a4a530`; pengujian registry dan PoP menggunakan database terisolasi berhasil.
+- **M11:** Org3MSP berhasil bergabung dengan channel Fabric, menyetujui chaincode lifecycle dan melakukan query ledger.
+- **M12:** SQLite institution/user registry, admin dashboard, staff login, RBAC, audit logs dan hardening origin/session telah diimplementasikan.
+
+### Keterbatasan yang masih terbuka
+
+- **M03/M07:** Private-key recovery, rotation, device approval dan cross-device E2EE belum selesai. IndexedDB `org2-demo` hanya penyimpanan lokal demonstrasi.
+- **M06:** Fungsi hybrid frontend masih dibatasi pada development oleh `import.meta.env.DEV`; build production tidak boleh diklaim sudah mendukung E2E.
+- **M07:** Registrasi public key production belum diaktifkan; pengujian PoP berhasil dalam mode test terisolasi.
+- **M08:** Pengujian manipulasi object MinIO, envelope metadata dan kegagalan layanan belum lengkap.
+- **M09:** Belum ada hasil benchmark Caliper yang terverifikasi.
+- **M11/M13:** Org3 adalah anggota Fabric, tetapi chaincode dan Fabric Gateway masih menggunakan alur Org1MSP ke Org2MSP. Belum ada pengirim Org3 yang dinamis.
+- **M12:** Admin aplikasi tidak sama dengan authority yang mengendalikan kebijakan membership Fabric.
+- **M10:** Analisis Bab 4–5 dan validasi akhir masih direncanakan.
+
+### Status milestone
+
+| Milestone | Status | Progress |
+| --- | --- | --- |
+| M01 | Testing | 65% |
+| M02 | Testing | 75% |
+| M03 | Testing | 70% |
+| M04 | Testing | 75% |
+| M05 | Testing | 80% |
+| M06 | Testing | 85% |
+| M07 | Testing | 70% |
+| M08 | In Progress | 10% |
+| M09 | Planned | 0% |
+| M10 | Planned | 0% |
+| M11 | Testing | 90% |
+| M12 | Testing | 55% |
+| M13 | Planned | 0% |
+
+Angka persentase berasal dari Notion Milestone Tracker dan merupakan estimasi kemajuan, bukan hasil pengujian otomatis.
+
+**Batas penelitian:** aplikasi belum siap digunakan untuk data pasien atau operasional klinis. Semua pengujian menggunakan data sintetis.
+
+---
+
+## Riwayat dokumentasi sebelumnya
+
 ## Current implementation status — 1 November 2026
 
 > **NexusMed is a local research Proof of Concept, not a clinical or production service.** This section supersedes the older dated status snapshots below. All referrals used in tests are synthetic. Do not expose the Express/Fabric/MinIO services publicly without a separate security review.
