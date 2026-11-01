@@ -1,8 +1,6 @@
 import {
   randomBytes,
   createHash,
-  scryptSync,
-  timingSafeEqual,
 } from "node:crypto";
 
 import { authenticateAdmin } from "../services/adminAuthService.js";
@@ -39,6 +37,11 @@ function getSession(req) {
   if (!session) return null;
 
   if (Date.now() >= session.expiresAt) {
+    sessions.delete(key);
+    return null;
+  }
+
+  if (!session.userId) {
     sessions.delete(key);
     return null;
   }
@@ -126,37 +129,6 @@ function getSession(req) {
   return session;
 }
 
-function verifyPassword(password, storedHash) {
-  if (typeof password !== "string" || !storedHash) return false;
-
-  const [salt, expectedHex] = storedHash.split(":");
-
-  if (
-    !/^[a-f0-9]{32}$/.test(salt || "") ||
-    !/^[a-f0-9]{128}$/.test(expectedHex || "")
-  ) {
-    return false;
-  }
-
-  const expected = Buffer.from(expectedHex, "hex");
-  const actual = scryptSync(password, salt, expected.length);
-
-  return timingSafeEqual(actual, expected);
-}
-
-const accounts = {
-  org1: {
-    role: "org1",
-    institution: "Org1MSP",
-    passwordHash: process.env.AUTH_ORG1_HASH,
-  },
-  org2: {
-    role: "org2",
-    institution: "Org2MSP",
-    passwordHash: process.env.AUTH_ORG2_HASH,
-  },
-};
-
 const cookieOptions = {
   httpOnly: true,
   sameSite: "lax",
@@ -186,16 +158,6 @@ export function login(req, res) {
         role: admin.role,
         institution: null,
         sessionVersion: admin.sessionVersion,
-      };
-    }
-  } else if (Object.hasOwn(accounts, username)) {
-    const account = accounts[username];
-
-    if (verifyPassword(password, account.passwordHash)) {
-      user = {
-        username,
-        role: account.role,
-        institution: account.institution,
       };
     }
   } else {
