@@ -25,7 +25,7 @@ app.use((req, res, next) => {
 
   const origin = req.headers.origin;
 
-  if (origin && origin !== "http://localhost:5173") {
+  if (origin !== "http://localhost:5173") {
     return res.status(403).json({
       error: "Origin tidak diizinkan.",
     });
