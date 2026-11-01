@@ -1,25 +1,20 @@
-
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 
-import {
-  checkBackend,
-  getSession,
-  logout,
-} from "./services/api";
+import { checkBackend, getSession, logout } from "./services/api";
 
 import { getOrCreateHospitalKeys } from "./services/keyStorage";
 
 import LoginPage from "./pages/LoginPage";
 import Org1Dashboard from "./pages/Org1Dashboard";
 import Org2Dashboard from "./pages/Org2Dashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 import "./App.css";
 import "./dashboard-separation.css";
 
 const ENABLE_LAB =
-  import.meta.env.DEV ||
-  import.meta.env.VITE_ENABLE_LAB === "true";
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_LAB === "true";
 
 const TestingDashboard = ENABLE_LAB
   ? lazy(() => import("./pages/TestingDashboard"))
@@ -58,11 +53,7 @@ function HomePage({ user }) {
 
       <div className="portal-grid">
         <Link
-          to={
-            import.meta.env.DEV && !user
-              ? "/login?role=org1"
-              : "/org1"
-          }
+          to={import.meta.env.DEV && !user ? "/login?role=org1" : "/org1"}
           className="portal-card"
         >
           <h3>FKTP — Pengirim</h3>
@@ -71,11 +62,7 @@ function HomePage({ user }) {
         </Link>
 
         <Link
-          to={
-            import.meta.env.DEV && !user
-              ? "/login?role=org2"
-              : "/org2"
-          }
+          to={import.meta.env.DEV && !user ? "/login?role=org2" : "/org2"}
           className="portal-card"
         >
           <h3>FKRTL — Penerima</h3>
@@ -97,14 +84,10 @@ export default function App() {
   );
 
   const [user, setUser] = useState(null);
-  const [sessionLoading, setSessionLoading] = useState(
-    import.meta.env.DEV,
-  );
+  const [sessionLoading, setSessionLoading] = useState(import.meta.env.DEV);
 
   const [receiverKeys, setReceiverKeys] = useState(null);
-  const [keyStatus, setKeyStatus] = useState(
-    "Menyiapkan kunci sesi demo...",
-  );
+  const [keyStatus, setKeyStatus] = useState("Menyiapkan kunci sesi demo...");
 
   const [referrals, setReferrals] = useState({});
 
@@ -156,16 +139,9 @@ export default function App() {
     };
   }, []);
 
-  function saveReferral({
-    referralId,
-    payload,
-    documentHash,
-    createdAt,
-  }) {
+  function saveReferral({ referralId, payload, documentHash, createdAt }) {
     if (referrals[referralId]) {
-      throw new Error(
-        "Nomor rujukan sudah digunakan dalam sesi demo ini.",
-      );
+      throw new Error("Nomor rujukan sudah digunakan dalam sesi demo ini.");
     }
 
     setReferrals((prev) => ({
@@ -198,13 +174,10 @@ export default function App() {
         </div>
 
         <div className="header-status">
-          <span className="backend-status">
-            API: {backendStatus}
-          </span>
+          <span className="backend-status">API: {backendStatus}</span>
 
           <span className="demo-badge">
-            DATA SINTETIS ·{" "}
-            {import.meta.env.DEV ? "DEMO LOKAL" : "DEMO WEB"}
+            DATA SINTETIS · {import.meta.env.DEV ? "DEMO LOKAL" : "DEMO WEB"}
           </span>
 
           {import.meta.env.DEV && user && (
@@ -226,10 +199,7 @@ export default function App() {
 
       <main className="app-main">
         <Routes>
-          <Route
-            path="/"
-            element={<HomePage user={user} />}
-          />
+          <Route path="/" element={<HomePage user={user} />} />
 
           <Route
             path="/login"
@@ -251,11 +221,7 @@ export default function App() {
           <Route
             path="/org1"
             element={
-              <ProtectedRoute
-                user={user}
-                loading={sessionLoading}
-                role="org1"
-              >
+              <ProtectedRoute user={user} loading={sessionLoading} role="org1">
                 <Org1Dashboard
                   receiverPublicKey={receiverKeys?.publicKey}
                   onSend={saveReferral}
@@ -268,14 +234,8 @@ export default function App() {
           <Route
             path="/org2"
             element={
-              <ProtectedRoute
-                user={user}
-                loading={sessionLoading}
-                role="org2"
-              >
-                <Org2Dashboard
-                  receiverPrivateKey={receiverKeys?.privateKey}
-                />
+              <ProtectedRoute user={user} loading={sessionLoading} role="org2">
+                <Org2Dashboard receiverPrivateKey={receiverKeys?.privateKey} />
               </ProtectedRoute>
             }
           />
@@ -289,9 +249,7 @@ export default function App() {
                   loading={sessionLoading}
                   role="org2"
                 >
-                  <Suspense
-                    fallback={<p>Memuat Developer Lab...</p>}
-                  >
+                  <Suspense fallback={<p>Memuat Developer Lab...</p>}>
                     <TestingDashboard
                       referrals={referrals}
                       receiverKeys={receiverKeys}
@@ -303,10 +261,22 @@ export default function App() {
             />
           )}
 
-          <Route
-            path="*"
-            element={<Navigate to="/" replace />}
-          />
+          {import.meta.env.DEV && (
+            <Route
+              path="/consortium_admin"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  loading={sessionLoading}
+                  role="consortium_admin"
+                >
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+          )}
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>

@@ -7,7 +7,12 @@ export default function LoginPage({ onLogin }) {
   const [params] = useSearchParams();
 
   const requestedRole = params.get("role");
-  const defaultRole = requestedRole === "org2" ? "org2" : "org1";
+  const defaultRole =
+    requestedRole === "admin"
+      ? "nexusadmin"
+      : requestedRole === "org2"
+        ? "org2"
+        : "org1";
 
   const [username, setUsername] = useState(defaultRole);
   const [password, setPassword] = useState("");
@@ -57,6 +62,8 @@ export default function LoginPage({ onLogin }) {
           >
             <option value="org1">Org1 — FKTP Pengirim</option>
             <option value="org2">Org2 — FKRTL Penerima</option>
+            <option value="nexusadmin">NexusMed — Consortium Admin</option>
+            <option value="staff_fktp01">Staff FKTP 01 — Org1</option>
           </select>
         </label>
 
