@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { decryptFHIR } from "../services/cryptoService";
 import { Link } from "react-router-dom";
 import { getVerifiedReferral } from "../services/api";
@@ -10,6 +10,33 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
   const [record, setRecord] = useState(null);
   const [fhir, setFhir] = useState(null);
 
+  const lifecycle = useRef({
+    key: receiverPrivateKey,
+    generation: 0,
+    mounted: true,
+  });
+
+  useLayoutEffect(() => {
+    if (lifecycle.current.key !== receiverPrivateKey) {
+      lifecycle.current.key = receiverPrivateKey;
+      lifecycle.current.generation += 1;
+      setRecord(null);
+      setFhir(null);
+      setBusy(false);
+      setError("");
+    }
+  }, [receiverPrivateKey]);
+
+  useLayoutEffect(() => {
+    const currentLifecycle = lifecycle.current;
+    currentLifecycle.mounted = true;
+
+    return () => {
+      currentLifecycle.mounted = false;
+      currentLifecycle.generation += 1;
+    };
+  }, []);
+
   async function handleSearch(event) {
     event.preventDefault();
 
@@ -17,6 +44,13 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
     setRecord(null);
     setFhir(null);
     setBusy(true);
+
+    const generation = ++lifecycle.current.generation;
+    const isCurrent = () =>
+      lifecycle.current.mounted &&
+      lifecycle.current.generation === generation &&
+      lifecycle.current.key === receiverPrivateKey &&
+      Boolean(receiverPrivateKey);
 
     try {
       if (!receiverPrivateKey) {
@@ -31,6 +65,8 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
 
       const verified = await getVerifiedReferral(referralId);
 
+      if (!isCurrent()) return;
+
       console.log("[Org2] Verifikasi selesai:", verified.status);
 
       console.log("[Org2] Memulai dekripsi...");
@@ -41,7 +77,9 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
         verified.ledgerHash,
       );
 
-      console.log("[Org2] Dekripsi berhasil!");
+      if (!isCurrent()) return;
+
+        console.log("[Org2] Dekripsi berhasil!");
 
       setRecord({
         referralId: verified.referralId,
@@ -51,9 +89,9 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
 
       setFhir(output);
     } catch (error) {
-      setError(error.message);
+      if (isCurrent()) setError(error.message);
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
 
@@ -89,22 +127,27 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
             onChange={(e) => setId(e.target.value)}
           />
         </label>
-        <button type="submit" disabled={busy}>
+        <button type="submit" disabled={busy || !receiverPrivateKey}>
           {busy ? "Memeriksa..." : "Cari & Buka Rujukan (Demo)"}
         </button>
       </form>
-      {error && (
-        <div className="result error" role="alert">
-          {error}
-        </div>
-      )}
+        {!receiverPrivateKey && (
+          <p className="muted" role="status">
+            Kunci privat penerima belum tersedia atau belum
+            terverifikasi. Pencarian rujukan dinonaktifkan.
+          </p>
+        )}
+        {error && (
+          <div className="result error" role="alert">
+            {error}
+          </div>
+        )}
       {record && fhir && (
         <div className="referral-detail" role="status">
           <p className="muted small-note">
             Mode development menggunakan verifikasi integritas MinIO dan
             Hyperledger Fabric sebelum dekripsi lokal. Kunci privat penerima
-            masih bergantung pada sesi browser. Autentikasi pengguna dan akses
-            lintas perangkat belum tersedia.
+            masih bergantung pada sesi browser. Autentikasi sesi aplikasi tersedia pada mode registry, tetapi akses lintas perangkat belum divalidasi.
           </p>
           <h3>Ringkasan Rujukan FHIR R4</h3>
           <dl className="detail-grid">
@@ -132,8 +175,7 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
         </div>
       )}
       <p className="muted small-note">
-        Pencarian menggunakan state browser, bukan permintaan langsung ke
-        MinIO/Fabric. Autentikasi MSP dan alur penerimaan rujukan nyata belum
+        Pencarian rujukan dilakukan melalui API. Autentikasi MSP dan alur penerimaan rujukan nyata belum
         aktif.
       </p>
     </section>
