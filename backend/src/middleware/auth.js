@@ -194,9 +194,11 @@ export function login(req, res) {
   return res.json({
     status: "authenticated",
     user: {
+      userId: user.userId ?? null,
       username: user.username,
       role: user.role,
       institution: user.institution,
+      institutionId: user.institutionId ?? null,
     },
   });
 }
@@ -230,10 +232,16 @@ export function requireRole(role) {
 }
 
 export function me(req, res) {
-  const { username, role, institution } = req.user;
+  const { userId, username, role, institution, institutionId } = req.user;
 
   res.json({
-    user: { username, role, institution },
+    user: {
+      userId: userId ?? null,
+      username,
+      role,
+      institution,
+      institutionId: institutionId ?? null,
+    },
   });
 }
 
