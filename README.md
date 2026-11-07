@@ -1,5 +1,51 @@
 # NexusMed — Hybrid Blockchain–Cloud Medical Referrals
 
+
+## M07 Development Checkpoint — 8 November 2026
+
+**Status:** Development checkpoint D5–D8 closed; overall M07 remains **Testing (70% estimated)**. Research PoC with synthetic data, not production-ready.
+
+**Source:** [Commit 7ade7d8](https://github.com/AsterisXxX/skripsi-blockchain/commit/7ade7d8d604f899a60fc7796c57b4d049f0f390c).
+
+### Implemented and validated
+
+- Session-aware ECDH P-256 key lifecycle bound to user, institution, key ID and session generation.
+- Org1 resolves verified receiver public keys without receiving private keys.
+- Org2 uses non-extractable private CryptoKey in institution-scoped IndexedDB storage.
+- Public JWK fingerprint verification and ECDH key-pair verification.
+- Browser key rehydration after refresh, synthetic role separation and logout isolation.
+- Receiver UI guard when the private key is unavailable.
+- Async operation invalidation: stale verification/decryption results are not published after logout and re-login.
+- Configurable local Vite API proxy for isolated synthetic testing.
+
+### Test results
+
+| Validation | Result |
+| --- | --- |
+| React/Vitest regression after cleanup | 14/14 PASS |
+| Node standalone regression (preceding full run) | 31/31 PASS |
+| Combined reported checks | 45/45 PASS |
+| ESLint | 0 errors, 0 warnings |
+| Vite production build | PASS |
+| Git checkpoint | 7ade7d8, synchronized with origin/main |
+
+Synthetic mock tests used Vite `127.0.0.1:5175` and mock API `127.0.0.1:3991`, separate from the actual backend `127.0.0.1:3001`.
+
+### Remaining limitations
+
+- Production key enrollment remains gated; synthetic mock enrollment does not prove production Proof-of-Possession.
+- Cross-device key recovery, rotation and device approval remain pending.
+- Per-user Fabric MSP mapping and recipient-specific production authorization require further validation.
+- Full-envelope integrity, production-mode hybrid E2E acceptance, tamper/failure testing and Caliper benchmarks remain open.
+- Frontend invalidation prevents stale results from being displayed but does not cancel WebCrypto operations already underway.
+- Same-origin JavaScript may still access locally stored IndexedDB CryptoKeys.
+- Preserve historical `org2-demo` key storage; do not use real patient data.
+
+**Documentation:** [NexusMed Notion Hub](https://app.notion.com/p/4046a2b0c93081c2badbede083a112e8) and [M07 Milestone](https://app.notion.com/p/4046a2b0c93081148993f09ab8399cd4).
+
+---
+
+
 ## Status terverifikasi — 2 November 2026
 
 **Baseline:** GitHub `main` commit `7a4a530`.
