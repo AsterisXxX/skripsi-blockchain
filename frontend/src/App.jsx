@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 
 import { checkBackend, getSession, logout } from "./services/api";
 
 import { getOrCreateHospitalKeys } from "./services/keyStorage";
+import { resolveSessionKeys } from "./services/sessionKeyResolver";
 
 import LoginPage from "./pages/LoginPage";
 import Org1Dashboard from "./pages/Org1Dashboard";
@@ -15,6 +16,12 @@ import "./dashboard-separation.css";
 
 const ENABLE_LAB =
   import.meta.env.DEV || import.meta.env.VITE_ENABLE_LAB === "true";
+
+const REGISTRY_MODE =
+  import.meta.env.VITE_KEY_LIFECYCLE_MODE === "registry";
+
+const RECEIVER_INSTITUTION_ID =
+  import.meta.env.VITE_RECEIVER_INSTITUTION_ID || "";
 
 const TestingDashboard = ENABLE_LAB
   ? lazy(() => import("./pages/TestingDashboard"))
@@ -81,9 +88,41 @@ export default function App() {
 
   const [user, setUser] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [sessionGeneration, setSessionGeneration] = useState(0);
+  const [logoutPending, setLogoutPending] = useState(false);
+  const logoutInFlight = useRef(false);
 
-  const [receiverKeys, setReceiverKeys] = useState(null);
-  const [keyStatus, setKeyStatus] = useState("Menyiapkan kunci sesi demo...");
+  const [keyResolution, setKeyResolution] = useState(null);
+
+  function handleLogin(nextUser) {
+    setKeyResolution(null);
+    setSessionGeneration((previous) => previous + 1);
+    setUser(nextUser);
+    setReferrals({});
+  }
+
+  // Key hanya boleh digunakan oleh identitas sesi yang memuatnya.
+  const sessionIdentity = user
+    ? JSON.stringify([
+        user.role,
+        user.userId ?? null,
+        user.institutionId ?? null,
+        user.username ?? null,
+        sessionGeneration,
+      ])
+    : null;
+
+  const activeKeyResolution =
+    !sessionLoading &&
+    !logoutPending &&
+    sessionIdentity &&
+    keyResolution?.sessionIdentity === sessionIdentity
+      ? keyResolution
+      : null;
+
+  const receiverKeys = activeKeyResolution?.keys ?? null;
+  const keyStatus =
+    activeKeyResolution?.status ?? "Menunggu kunci sesi aktif...";
 
   const [referrals, setReferrals] = useState({});
 
@@ -111,29 +150,72 @@ export default function App() {
         });
     }
 
-    getOrCreateHospitalKeys()
-      .then(({ keys, source }) => {
-        if (!active) return;
-
-        setReceiverKeys(keys);
-
-        if (source === "indexeddb") {
-          setKeyStatus("Kunci Org2 dimuat dari IndexedDB");
-        } else {
-          setKeyStatus("Kunci Org2 baru disimpan ke IndexedDB");
-        }
-      })
-      .catch((error) => {
-        if (!active) return;
-
-        setReceiverKeys(null);
-        setKeyStatus(`Gagal memuat kunci Org2: ${error.message}`);
-      });
-
     return () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    // Tidak membuka penyimpanan kunci selama pemeriksaan sesi.
+    if (sessionLoading || !user || logoutPending) {
+      return () => {
+        active = false;
+      };
+    }
+
+    if (!REGISTRY_MODE) {
+      getOrCreateHospitalKeys()
+        .then(({ keys, source }) => {
+          if (!active) return;
+
+          setKeyResolution({
+            sessionIdentity,
+            keys,
+            status:
+              source === "indexeddb"
+                ? "Kunci demo dimuat dari IndexedDB"
+                : "Kunci demo baru disimpan ke IndexedDB",
+          });
+        })
+        .catch((error) => {
+          if (!active) return;
+
+          setKeyResolution({
+            sessionIdentity,
+            keys: null,
+            status: `Kunci demo gagal dimuat: ${error.message}`,
+          });
+        });
+    } else {
+      resolveSessionKeys(user, {
+        receiverInstitutionId: RECEIVER_INSTITUTION_ID,
+      })
+        .then((keys) => {
+          if (!active) return;
+
+          setKeyResolution({
+            sessionIdentity,
+            keys,
+            status: `Registry key aktif: ${keys.keyId}`,
+          });
+        })
+        .catch((error) => {
+          if (!active) return;
+
+          setKeyResolution({
+            sessionIdentity,
+            keys: null,
+            status: `Registry key tidak tersedia: ${error.message}`,
+          });
+        });
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [user, sessionLoading, sessionIdentity, logoutPending]);
 
   function saveReferral({ referralId, payload, documentHash, createdAt }) {
     if (referrals[referralId]) {
@@ -152,12 +234,27 @@ export default function App() {
   }
 
   async function handleLogout() {
+    if (logoutInFlight.current) return;
+
+    logoutInFlight.current = true;
+    setLogoutPending(true);
+
+    // Putuskan akses key sebelum memulai request logout.
+    setKeyResolution(null);
+    setSessionGeneration((previous) => previous + 1);
+    setReferrals({});
+
     try {
       await logout();
       setUser(null);
-      setReferrals({});
     } catch (error) {
-      alert(`Logout gagal: ${error.message}`);
+      // Jangan memulihkan key lama jika logout gagal.
+      // Sesi harus diverifikasi ulang sebelum key dapat digunakan.
+      setUser(null);
+      alert(`Logout gagal: ${error.message}. Silakan login kembali.`);
+    } finally {
+      logoutInFlight.current = false;
+      setLogoutPending(false);
     }
   }
 
@@ -205,7 +302,7 @@ export default function App() {
               ) : user ? (
                 <Navigate to={`/${user.role}`} replace />
               ) : (
-                <LoginPage onLogin={setUser} />
+                <LoginPage onLogin={handleLogin} />
               )
             }
           />

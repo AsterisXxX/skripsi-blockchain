@@ -10,6 +10,14 @@ function equalBytes(a, b) {
   return difference === 0;
 }
 
+function isP256Key(key, type) {
+  return (
+    key?.type === type &&
+    key.algorithm?.name === "ECDH" &&
+    key.algorithm?.namedCurve === "P-256"
+  );
+}
+
 export async function verifyRegisteredKeyPair(
   storedKeys,
   registeredPublicKey
@@ -18,61 +26,54 @@ export async function verifyRegisteredKeyPair(
   const localPublicKey = storedKeys?.publicKey;
 
   if (
-    privateKey?.type !== "private" ||
-    localPublicKey?.type !== "public" ||
-    registeredPublicKey?.type !== "public"
+    !isP256Key(privateKey, "private") ||
+    !isP256Key(localPublicKey, "public") ||
+    !isP256Key(registeredPublicKey, "public")
   ) {
     throw new Error("Pasangan kunci tidak valid.");
   }
 
-  const localJwk = await crypto.subtle.exportKey(
-    "jwk",
-    localPublicKey
-  );
-
-  const registryJwk = await crypto.subtle.exportKey(
-    "jwk",
-    registeredPublicKey
-  );
-
-  if (
-    localJwk.kty !== "EC" ||
-    localJwk.crv !== "P-256" ||
-    localJwk.x !== registryJwk.x ||
-    localJwk.y !== registryJwk.y
-  ) {
-    throw new Error(
-      "Public key lokal tidak cocok dengan registry."
-    );
-  }
-
-  // Membuktikan bahwa private key lokal benar-benar
-  // berpasangan dengan public key yang terdaftar.
+  // Kunci ephemeral hanya dipakai untuk pembuktian ECDH.
+  // Tidak disimpan dan tidak dikirim ke backend.
   const ephemeral = await crypto.subtle.generateKey(
     { name: "ECDH", namedCurve: "P-256" },
     false,
     ["deriveBits"]
   );
 
-  const fromLocalPrivate = new Uint8Array(
-    await crypto.subtle.deriveBits(
-      { name: "ECDH", public: ephemeral.publicKey },
-      privateKey,
-      256
-    )
+  const derive = async (privateKey, publicKey) =>
+    new Uint8Array(
+      await crypto.subtle.deriveBits(
+        { name: "ECDH", public: publicKey },
+        privateKey,
+        256
+      )
+    );
+
+  const fromLocalPrivate = await derive(
+    privateKey,
+    ephemeral.publicKey
   );
 
-  const fromRegisteredPublic = new Uint8Array(
-    await crypto.subtle.deriveBits(
-      { name: "ECDH", public: registeredPublicKey },
-      ephemeral.privateKey,
-      256
-    )
+  const fromLocalPublic = await derive(
+    ephemeral.privateKey,
+    localPublicKey
+  );
+
+  if (!equalBytes(fromLocalPrivate, fromLocalPublic)) {
+    throw new Error(
+      "Private key lokal tidak cocok dengan public key lokal."
+    );
+  }
+
+  const fromRegisteredPublic = await derive(
+    ephemeral.privateKey,
+    registeredPublicKey
   );
 
   if (!equalBytes(fromLocalPrivate, fromRegisteredPublic)) {
     throw new Error(
-      "Private key lokal tidak cocok dengan public key registry."
+      "Public key lokal tidak cocok dengan registry."
     );
   }
 
