@@ -70,11 +70,37 @@ db.exec(`
     ('poli_umum_org2', 'org2', 'active');
 `);
 
+db.exec(`
+  INSERT INTO institutions VALUES
+    ('org3', 'approved', 0, 1);
+
+  INSERT INTO departments VALUES
+    ('poli_saraf_org2', 'org2', 'active'),
+    ('poli_umum_org3', 'org3', 'active');
+
+  INSERT INTO users VALUES
+    ('doctor-umum', 'org2', 'active'),
+    ('doctor-saraf', 'org2', 'active'),
+    ('doctor-org3', 'org3', 'active');
+
+  INSERT INTO role_assignments VALUES
+    ('doctor-umum', 'referral_receiver', NULL),
+    ('doctor-saraf', 'referral_receiver', NULL),
+    ('doctor-org3', 'referral_receiver', NULL);
+
+  INSERT INTO user_department_assignments VALUES
+    ('doctor-umum', 'poli_umum_org2', NULL),
+    ('doctor-saraf', 'poli_saraf_org2', NULL),
+    ('doctor-org3', 'poli_umum_org3', NULL);
+`);
+
 const objects = new Map();
 const ledgerRecords = new Map();
 
 let storageFault = null;
 let fabricFault = null;
+let minioReads = 0;
+let fabricReads = 0;
 let identity = {
   userId: "synthetic-sender",
   role: "org1",
@@ -105,6 +131,7 @@ const minioClient = {
   },
 
   async getObject(bucket, key) {
+    minioReads += 1;
     const object = objects.get(key);
 
     if (!object) {
@@ -139,6 +166,7 @@ async function createReferralOnFabric({
 }
 
 async function getReferralFromFabric(referralId) {
+  fabricReads += 1;
   if (fabricFault === "read_failure") {
     throw new Error("Synthetic ledger read failure");
   }
@@ -242,6 +270,18 @@ beforeEach(() => {
 
   storageFault = null;
   fabricFault = null;
+  minioReads = 0;
+  fabricReads = 0;
+
+  db.prepare(`
+    UPDATE user_department_assignments
+    SET revoked_at = NULL
+  `).run();
+
+  db.prepare(`
+    UPDATE role_assignments
+    SET revoked_at = NULL
+  `).run();
 
   identity = {
     userId: "synthetic-sender",
@@ -436,4 +476,143 @@ test("POST duplicate ID cannot overwrite storage", async () => {
   assert.equal(second.code, 409);
   assert.equal(objects.size, 1);
   assert.equal(ledgerRecords.size, 1);
+});
+
+
+function useReceiver(userId = "doctor-umum", institutionId = "org2") {
+  identity = {
+    userId,
+    role: "org2",
+    institutionId,
+    institution: institutionId === "org2"
+      ? "Org2MSP"
+      : "Org3MSP",
+  };
+}
+
+async function getVerified(id = "REF-POST-TEST") {
+  const response = await fetch(
+    `${baseUrl}/api/referrals/${encodeURIComponent(id)}/verified`,
+  );
+
+  return {
+    code: response.status,
+    body: await response.json(),
+  };
+}
+
+test("GET authorized doctor receives verified ciphertext", async () => {
+  assert.equal((await post()).code, 201);
+
+  useReceiver();
+
+  const result = await getVerified();
+
+  assert.equal(result.code, 200);
+  assert.equal(result.body.verified, true);
+  assert.equal(result.body.calculatedHash, hash);
+  assert.equal(result.body.payload.documentHash, hash);
+  assert.equal(minioReads, 1);
+  assert.equal(fabricReads, 2);
+});
+
+test("GET wrong department cannot reach MinIO or Fabric", async () => {
+  assert.equal((await post()).code, 201);
+
+  useReceiver("doctor-saraf");
+  const beforeMinio = minioReads;
+  const beforeFabric = fabricReads;
+
+  const result = await getVerified();
+
+  assert.equal(result.code, 403);
+  assert.equal(minioReads, beforeMinio);
+  assert.equal(fabricReads, beforeFabric);
+});
+
+test("GET wrong institution cannot reach storage", async () => {
+  assert.equal((await post()).code, 201);
+
+  useReceiver("doctor-org3", "org3");
+  const beforeMinio = minioReads;
+
+  const result = await getVerified();
+
+  assert.equal(result.code, 403);
+  assert.equal(minioReads, beforeMinio);
+});
+
+test("GET revoked department cannot reach storage", async () => {
+  assert.equal((await post()).code, 201);
+
+  db.prepare(`
+    UPDATE user_department_assignments
+    SET revoked_at = CURRENT_TIMESTAMP
+    WHERE user_id = 'doctor-umum'
+  `).run();
+
+  useReceiver();
+  const beforeMinio = minioReads;
+
+  const result = await getVerified();
+
+  assert.equal(result.code, 403);
+  assert.equal(minioReads, beforeMinio);
+});
+
+test("GET uncommitted referral is blocked", async () => {
+  fabricFault = "submit_failure";
+
+  assert.equal((await post()).code, 202);
+
+  useReceiver();
+  const beforeMinio = minioReads;
+
+  const result = await getVerified();
+
+  assert.equal(result.code, 409);
+  assert.equal(minioReads, beforeMinio);
+});
+
+test("GET detects tampered ciphertext", async () => {
+  assert.equal((await post()).code, 201);
+
+  const key = "referrals/REF-POST-TEST.json";
+  const document = JSON.parse(
+    objects.get(key).toString("utf8")
+  );
+
+  document.payload.ciphertext =
+    Buffer.from("tampered-ciphertext").toString("base64");
+
+  objects.set(
+    key,
+    Buffer.from(JSON.stringify(document)),
+  );
+
+  useReceiver();
+
+  const result = await getVerified();
+
+  assert.equal(result.code, 409);
+  assert.equal(result.body.verified, false);
+  assert.equal(result.body.status, "integrity_failed");
+});
+
+test("GET missing legacy registry fails closed", async () => {
+  objects.set(
+    "referrals/REF-POST-TEST.json",
+    Buffer.from(JSON.stringify({
+      referralId: "REF-POST-TEST",
+      payload: requestBody().payload,
+    })),
+  );
+
+  useReceiver();
+  const beforeMinio = minioReads;
+
+  const result = await getVerified();
+
+  assert.equal(result.code, 404);
+  assert.equal(minioReads, beforeMinio);
 });

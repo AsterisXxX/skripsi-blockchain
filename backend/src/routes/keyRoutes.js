@@ -9,6 +9,9 @@ import {
   timingSafeEqual
 } from "node:crypto";
 import db from "../config/database.js";
+import {
+  isKeyRegistrationEnabled,
+} from "../services/keyRegistrationPolicy.js";
 import { registerFirstPublicKey } from "../services/keyRegistryService.js";
 import { assertKeyRegistrySchema } from "../services/keyRegistrySchema.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -364,8 +367,7 @@ router.post("/challenge/verify", requireRole("org2"), (req, res) => {
   }
 
   const registrationEnabled =
-    process.env.NODE_ENV === "test" &&
-    process.env.NEXUSMED_KEY_REGISTRATION_ENABLED === "true";
+    isKeyRegistrationEnabled();
 
   if (!registrationEnabled) {
     return res.status(200).json({
