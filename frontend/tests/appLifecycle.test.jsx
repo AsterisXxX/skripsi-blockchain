@@ -92,6 +92,15 @@ vi.mock("../src/pages/Org2Dashboard.jsx", () => ({
     ),
 }));
 
+vi.mock("../src/components/Org2KeyEnrollment.jsx", () => ({
+  default: () =>
+    React.createElement(
+      "div",
+      { "data-testid": "org2-enrollment-panel" },
+      "Institutional Key Enrollment"
+    ),
+}));
+
 vi.mock("../src/pages/AdminDashboard.jsx", () => ({
   default: () =>
     React.createElement("p", null, "Admin Dashboard"),
@@ -102,6 +111,7 @@ let App;
 beforeAll(async () => {
   vi.stubEnv("VITE_KEY_LIFECYCLE_MODE", "registry");
   vi.stubEnv("VITE_RECEIVER_INSTITUTION_ID", "synthetic-org2");
+  vi.stubEnv("VITE_ENABLE_KEY_ENROLLMENT", "true");
 
   ({ default: App } = await import("../src/App.jsx"));
 });
@@ -406,4 +416,99 @@ describe("M07-C4 App Session Lifecycle", () => {
     }
   });
 
+});
+
+
+describe("M13 Org2 enrollment visibility", () => {
+  it("hides enrollment when institutional key is ready", async () => {
+    mocks.getSession.mockResolvedValue({
+      user: {
+        role: "org2",
+        userId: "receiver-test",
+        institutionId: "synthetic-org2",
+        username: "receiver-test",
+        institution: "Synthetic Hospital",
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/org2"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Receiver Key Available");
+
+    expect(
+      screen.queryByTestId("org2-enrollment-panel")
+    ).toBeNull();
+  });
+
+  it("shows enrollment only after missing key is confirmed", async () => {
+    mocks.getSession.mockResolvedValue({
+      user: {
+        role: "org2",
+        userId: "receiver-test",
+        institutionId: "synthetic-org2",
+        username: "receiver-test",
+        institution: "Synthetic Hospital",
+      },
+    });
+
+    let rejectResolution;
+
+    mocks.resolveSessionKeys.mockImplementationOnce(
+      () => new Promise((resolve, reject) => {
+        rejectResolution = reject;
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/org2"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(mocks.resolveSessionKeys).toHaveBeenCalledTimes(1);
+    });
+
+    expect(
+      screen.queryByTestId("org2-enrollment-panel")
+    ).toBeNull();
+
+    rejectResolution(new Error("Synthetic missing key"));
+
+    expect(
+      await screen.findByTestId("org2-enrollment-panel")
+    ).toBeTruthy();
+
+    expect(
+      screen.getByText("Receiver Key Unavailable")
+    ).toBeTruthy();
+  });
+
+  it("never shows Org2 enrollment to an Org1 session", async () => {
+    mocks.getSession.mockResolvedValue({
+      user: {
+        role: "org1",
+        userId: "sender-test",
+        institutionId: "synthetic-org1",
+        username: "sender-test",
+        institution: "Synthetic Clinic",
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/org1"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Org1 Dashboard");
+
+    expect(
+      screen.queryByTestId("org2-enrollment-panel")
+    ).toBeNull();
+  });
 });

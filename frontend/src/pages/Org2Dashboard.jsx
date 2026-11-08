@@ -114,8 +114,7 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
       </Link>
       <h2>Cari Rujukan Pasien</h2>
       <p className="muted">
-        Dekripsi FHIR sintetis pada sesi browser yang sama (bukan penerimaan
-        klinis sungguhan).
+        Verifikasi integritas rujukan sintetis melalui API sebelum dekripsi lokal menggunakan private key institusi.
       </p>
       <form className="referral-form" onSubmit={handleSearch}>
         <label>
@@ -145,9 +144,7 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
       {record && fhir && (
         <div className="referral-detail" role="status">
           <p className="muted small-note">
-            Mode development menggunakan verifikasi integritas MinIO dan
-            Hyperledger Fabric sebelum dekripsi lokal. Kunci privat penerima
-            masih bergantung pada sesi browser. Autentikasi sesi aplikasi tersedia pada mode registry, tetapi akses lintas perangkat belum divalidasi.
+            Integritas ciphertext diperiksa terhadap MinIO dan Hyperledger Fabric sebelum dekripsi lokal. Private key institusi tetap tersimpan pada browser workstation yang telah diotorisasi.
           </p>
           <h3>Ringkasan Rujukan FHIR R4</h3>
           <dl className="detail-grid">
@@ -175,8 +172,7 @@ export default function Org2Dashboard({ receiverPrivateKey }) {
         </div>
       )}
       <p className="muted small-note">
-        Pencarian rujukan dilakukan melalui API. Autentikasi MSP dan alur penerimaan rujukan nyata belum
-        aktif.
+        Mode pengujian menggunakan data sintetis. Penerimaan klinis dengan data pasien nyata belum diaktifkan.
       </p>
     </section>
   );

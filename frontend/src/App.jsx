@@ -329,7 +329,10 @@ export default function App() {
             element={
               <ProtectedRoute user={user} loading={sessionLoading} role="org2">
                 <>
-                  {REGISTRY_MODE && ENABLE_KEY_ENROLLMENT && (
+                  {REGISTRY_MODE &&
+                      ENABLE_KEY_ENROLLMENT &&
+                      Boolean(activeKeyResolution) &&
+                      !receiverKeys?.privateKey && (
                     <Org2KeyEnrollment
                       user={user}
                       onKeyReady={() =>
