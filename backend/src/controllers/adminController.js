@@ -1,3 +1,8 @@
+import {
+  registerDepartment,
+  DepartmentManagementError,
+} from "../services/departmentManagementService.js";
+
 import db from "../config/database.js";
 import {
   findDepartments,
@@ -19,6 +24,31 @@ import {
   revokeStaffRole,
   assignStaffRole,
 } from "../services/adminLifecycleService.js";
+
+export function createDepartment(req, res) {
+  try {
+    const result = registerDepartment(db, {
+      id: req.body?.id,
+      name: req.body?.name,
+      institutionId: req.body?.institutionId,
+      actorUserId: req.user?.userId,
+    });
+
+    return res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof DepartmentManagementError) {
+      return res.status(error.statusCode).json({
+        error: error.message,
+      });
+    }
+
+    console.error("Department registration failed:", error.message);
+
+    return res.status(500).json({
+      error: "Gagal mendaftarkan poli.",
+    });
+  }
+}
 
 export function getDepartments(req, res) {
   try {

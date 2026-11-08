@@ -160,6 +160,7 @@ mock.module(
         "assignUserRole",
         "getDepartments",
         "getDepartmentMemberships",
+        "createDepartment",
       ].map(name => [name, handler])
     ),
   }
@@ -249,6 +250,46 @@ test("M14 admin department endpoints enforce HTTP RBAC", async () => {
 
       const body = await admin.json();
       assert.equal(body.authorized, true);
+    }
+
+    // The write endpoint must enforce the same admin-only RBAC.
+    const createPath = "/api/admin/departments";
+    const proposed = JSON.stringify({
+      id: "poli_jantung_org2",
+      name: "Poli Jantung",
+      institutionId: "org2",
+    });
+
+    for (const [label, cookie, expectedStatus] of [
+      ["anonymous", null, 401],
+      ["org1", org1Cookie, 403],
+      ["org2", org2Cookie, 403],
+      ["admin", adminCookie, 200],
+    ]) {
+      const before = handlerCalls;
+      const headers = {
+        "content-type": "application/json",
+      };
+
+      if (cookie) headers.cookie = cookie;
+
+      const response = await fetch(base + createPath, {
+        method: "POST",
+        headers,
+        body: proposed,
+      });
+
+      assert.equal(
+        response.status,
+        expectedStatus,
+        `Unexpected POST status for ${label}`,
+      );
+
+      assert.equal(
+        handlerCalls,
+        before + (label === "admin" ? 1 : 0),
+        `Controller access mismatch for ${label}`,
+      );
     }
 
     // Revocation must invalidate the existing admin session.

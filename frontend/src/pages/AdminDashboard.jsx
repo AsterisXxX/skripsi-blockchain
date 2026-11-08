@@ -11,6 +11,8 @@ import {
   revokeUserRole,
   assignUserRole,
 } from "../services/adminApi";
+import CreateDepartmentForm from "../components/CreateDepartmentForm";
+
 export default function AdminDashboard() {
   const [institutions, setInstitutions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -291,6 +293,15 @@ export default function AdminDashboard() {
         </>
       )}
 
+        <CreateDepartmentForm
+          institutions={institutions}
+          onCreated={async () => {
+            const latest = await getDepartments();
+            setDepartments(latest.departments);
+            setDepartmentError("");
+          }}
+        />
+
         <section
           className="portal-card"
           aria-label="Department registry"
@@ -352,7 +363,7 @@ export default function AdminDashboard() {
 
         <p className="muted">
           Ringkasan hak akses pengguna berdasarkan data Admin API.
-          Keanggotaan poli belum tersedia melalui Admin API.
+          Akses poli ditampilkan berdasarkan membership dan RBAC aktif.
         </p>
 
         {usersLoading && (

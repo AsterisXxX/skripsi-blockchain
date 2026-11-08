@@ -151,3 +151,22 @@ export async function getDepartmentMemberships() {
 
   return data;
 }
+
+export async function createDepartment(payload) {
+  const response = await fetch("/api/admin/departments", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Gagal mendaftarkan poli.");
+  }
+
+  return data;
+}
