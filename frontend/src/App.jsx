@@ -9,6 +9,7 @@ import { resolveSessionKeys } from "./services/sessionKeyResolver";
 import LoginPage from "./pages/LoginPage";
 import Org1Dashboard from "./pages/Org1Dashboard";
 import Org2Dashboard from "./pages/Org2Dashboard";
+import Org2KeyEnrollment from "./components/Org2KeyEnrollment";
 import AdminDashboard from "./pages/AdminDashboard";
 
 import "./App.css";
@@ -19,6 +20,9 @@ const ENABLE_LAB =
 
 const REGISTRY_MODE =
   import.meta.env.VITE_KEY_LIFECYCLE_MODE === "registry";
+
+const ENABLE_KEY_ENROLLMENT =
+  import.meta.env.VITE_ENABLE_KEY_ENROLLMENT === "true";
 
 const RECEIVER_INSTITUTION_ID =
   import.meta.env.VITE_RECEIVER_INSTITUTION_ID || "";
@@ -324,7 +328,19 @@ export default function App() {
             path="/org2"
             element={
               <ProtectedRoute user={user} loading={sessionLoading} role="org2">
-                <Org2Dashboard receiverPrivateKey={receiverKeys?.privateKey} />
+                <>
+                  {REGISTRY_MODE && ENABLE_KEY_ENROLLMENT && (
+                    <Org2KeyEnrollment
+                      user={user}
+                      onKeyReady={() =>
+                        setSessionGeneration((previous) => previous + 1)
+                      }
+                    />
+                  )}
+                  <Org2Dashboard
+                    receiverPrivateKey={receiverKeys?.privateKey}
+                  />
+                </>
               </ProtectedRoute>
             }
           />

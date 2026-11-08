@@ -10,6 +10,9 @@ import {
 } from "node:crypto";
 import db from "../config/database.js";
 import {
+  canEnrollInstitutionKey,
+} from "../services/keyEnrollmentAuthorization.js";
+import {
   isKeyRegistrationEnabled,
 } from "../services/keyRegistrationPolicy.js";
 import { registerFirstPublicKey } from "../services/keyRegistryService.js";
@@ -168,6 +171,13 @@ function cleanupChallenges() {
 }
 
 router.post("/challenge", requireRole("org2"), (req, res) => {
+
+  if (!canEnrollInstitutionKey(req.user)) {
+    return res.status(403).json({
+      error: "Akun tidak ditunjuk untuk enrollment institusi."
+    });
+  }
+
   try {
     cleanupChallenges();
 
@@ -269,6 +279,13 @@ router.post("/challenge", requireRole("org2"), (req, res) => {
 });
 
 router.post("/challenge/verify", requireRole("org2"), (req, res) => {
+
+  if (!canEnrollInstitutionKey(req.user)) {
+    return res.status(403).json({
+      error: "Akun tidak ditunjuk untuk enrollment institusi."
+    });
+  }
+
   const { challengeId, proof } = req.body ?? {};
 
   if (
