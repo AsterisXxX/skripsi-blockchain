@@ -1,4 +1,16 @@
 import { Router } from "express";
+import db from "../config/database.js";
+import {
+  createReferralIntent,
+  markLedgerCommitted,
+} from "../services/referralRegistryService.js";
+import {
+  storeReferralCiphertext,
+} from "../services/referralStorageService.js";
+import {
+  createReferralAccessGuard,
+} from "../middleware/referralAccess.js";
+
 import { createHash } from "node:crypto";
 import { minioClient, BUCKET, checkMinio } from "../config/minio.js";
 import { requireRole } from "../middleware/auth.js";
@@ -44,7 +56,35 @@ router.get("/storage/health", async (req, res) => {
 
 router.post("/referrals", requireRole("org1"), async (req, res) => {
   try {
-    const { referralId, patientId, payload } = req.body;
+    const {
+      referralId,
+      patientId,
+      payload,
+      targetDepartmentId,
+    } = req.body;
+
+    const senderInstitutionId = req.user?.institutionId;
+    const receiverInstitutionId = "org2";
+
+    // Legacy Org1 -> Org2 integration only.
+    // The sender identity is derived from the server session.
+    if (
+      senderInstitutionId !== "org1" ||
+      req.user?.institution !== "Org1MSP"
+    ) {
+      return res.status(403).json({
+        error: "Institusi pengirim tidak diizinkan.",
+      });
+    }
+
+    if (
+      typeof targetDepartmentId !== "string" ||
+      !/^[A-Za-z0-9_-]{1,80}$/.test(targetDepartmentId)
+    ) {
+      return res.status(400).json({
+        error: "Poli tujuan harus dipilih dari daftar resmi.",
+      });
+    }
 
     if (!validId(referralId)) {
       return res.status(400).json({
@@ -112,6 +152,37 @@ router.post("/referrals", requireRole("org1"), async (req, res) => {
       }
     }
 
+    try {
+      createReferralIntent(db, {
+        referralId,
+        senderInstitutionId,
+        receiverInstitutionId,
+        targetDepartmentId,
+        documentHash: hash,
+      });
+    } catch (registryError) {
+      if (
+        registryError.code?.startsWith("SQLITE_CONSTRAINT") ||
+        registryError.message === "INVALID_RECEIVER_DEPARTMENT"
+      ) {
+        return res.status(409).json({
+          error:
+            "ID rujukan sudah dipakai atau poli tujuan tidak valid.",
+        });
+      }
+
+      if (
+        registryError.message === "SENDER_NOT_AUTHORIZED" ||
+        registryError.message === "INTRA_INSTITUTION_NOT_SUPPORTED"
+      ) {
+        return res.status(403).json({
+          error: "Institusi tidak diizinkan membuat rujukan.",
+        });
+      }
+
+      throw registryError;
+    }
+
     const document = {
       referralId,
       payload,
@@ -120,9 +191,27 @@ router.post("/referrals", requireRole("org1"), async (req, res) => {
 
     const buffer = Buffer.from(JSON.stringify(document));
 
-    await minioClient.putObject(BUCKET, key, buffer, buffer.length, {
-      "Content-Type": "application/json",
+    const storageResult = await storeReferralCiphertext({
+      db,
+      minioClient,
+      bucket: BUCKET,
+      objectKey: key,
+      buffer,
+      referralId,
     });
+
+    if (!storageResult.ok) {
+      return res.status(202).json({
+        status: "pending_storage",
+        referralId,
+        objectKey: key,
+        documentHash: hash,
+        reason: storageResult.reason,
+        message:
+          "Status penyimpanan belum terkonfirmasi. " +
+          "Jangan kirim ulang sebelum rekonsiliasi.",
+      });
+    }
 
     let ledger;
 
@@ -135,8 +224,22 @@ router.post("/referrals", requireRole("org1"), async (req, res) => {
         timestamp: document.storedAt,
       });
 
-      // Pemeriksaan ulang terhadap data yang terbaca dari ledger.
-      // Kita akan menambah endpoint verifikasi penuh pada tahap berikutnya.
+      const committedRecord = await getReferralFromFabric(referralId);
+
+      if (
+        committedRecord.referralId !== referralId ||
+        committedRecord.recordHash !== hash
+      ) {
+        throw new Error(
+          "FABRIC_RECORD_MISMATCH: review reconciliation before retry"
+        );
+      }
+
+      markLedgerCommitted(
+        db,
+        referralId,
+        ledger.transactionId,
+      );
     } catch (fabricError) {
       console.error("Commit Fabric belum terkonfirmasi:", fabricError);
 
@@ -167,7 +270,11 @@ router.post("/referrals", requireRole("org1"), async (req, res) => {
   }
 });
 
-router.get("/referrals/:id/verified", requireRole("org2"), async (req, res) => {
+router.get(
+  "/referrals/:id/verified",
+  requireRole("org2"),
+  createReferralAccessGuard(db),
+  async (req, res) => {
   const { id } = req.params;
 
   if (!validId(id)) {
@@ -223,7 +330,8 @@ router.get("/referrals/:id/verified", requireRole("org2"), async (req, res) => {
     const isValid =
       ledger.referralId === id &&
       calculatedHash === ledgerHash &&
-      calculatedHash === payloadHash;
+      calculatedHash === payloadHash &&
+      calculatedHash === req.referralMetadata.document_hash;
 
     if (!isValid) {
       return res.status(409).json({
@@ -259,6 +367,7 @@ router.get("/referrals/:id/verified", requireRole("org2"), async (req, res) => {
       error: "Verifikasi integritas gagal diproses.",
     });
   }
-});
+  },
+);
 
 export default router;
