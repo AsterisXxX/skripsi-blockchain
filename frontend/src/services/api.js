@@ -1,5 +1,10 @@
 const API_URL = "/api";
 
+// Production synthetic referral testing is disabled by default.
+const syntheticReferralEnabled =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_ENABLE_SYNTHETIC_REFERRALS === "true";
+
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -45,14 +50,19 @@ export async function logout() {
   });
 }
 
-export async function uploadReferral(referralId, payload, patientId) {
-  if (!import.meta.env.DEV) {
+export async function uploadReferral(referralId, payload, patientId, targetDepartmentId) {
+  if (!syntheticReferralEnabled) {
     throw new Error("Upload MinIO hanya tersedia pada development lokal.");
   }
 
   return request("/referrals", {
     method: "POST",
-    body: JSON.stringify({ referralId, patientId, payload }),
+    body: JSON.stringify({
+        referralId,
+        patientId,
+        payload,
+        targetDepartmentId,
+      }),
   });
 }
 
@@ -82,7 +92,7 @@ export async function verifyHybridReferral(referralId) {
 }
 
 export async function getVerifiedReferral(referralId) {
-  if (!import.meta.env.DEV) {
+  if (!syntheticReferralEnabled) {
     throw new Error("Penerimaan hybrid hanya tersedia pada development lokal.");
   }
 

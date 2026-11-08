@@ -4,13 +4,18 @@ import { convertToFHIR } from "../utils/fhirConverter";
 import { encryptFHIR } from "../services/cryptoService";
 import { uploadReferral } from "../services/api";
 
+const syntheticReferralEnabled =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_ENABLE_SYNTHETIC_REFERRALS === "true";
+
 const initial = {
   referralId: "",
   patientId: "",
   patientName: "",
   senderHospital: "Org1 - FKTP",
   receiverHospital: "Org2 - FKRTL",
-  targetUnit: "",
+  targetUnit: "Poli Umum",
+  targetDepartmentId: "poli_umum_org2",
   diagnosis: "",
   complaints: "",
   examination: "",
@@ -46,21 +51,29 @@ export default function Org1Dashboard({
       const fhir = convertToFHIR(form);
       const payload = await encryptFHIR(fhir, receiverPublicKey);
       const referralId = form.referralId.trim();
-      // Preserve M06-A from commit 2b29b481: upload in Vite DEV only.
-      if (import.meta.env.DEV) {
+      // Upload only when synthetic referral testing is enabled.
+      if (syntheticReferralEnabled) {
         const result = await uploadReferral(
           referralId,
           payload,
           form.patientId.trim(),
+          form.targetDepartmentId,
         );
         if (result.documentHash !== payload.documentHash) {
           throw new Error("Hash respons server tidak sesuai.");
         }
         if (result.status !== "stored_hybrid") {
+          const reason =
+            result.status === "pending_storage"
+              ? "Penyimpanan ciphertext belum terkonfirmasi."
+              : result.status === "pending_ledger"
+                ? "Ciphertext tersimpan, tetapi ledger belum terkonfirmasi."
+                : "Status transaksi hybrid belum dapat dikonfirmasi.";
+
           throw new Error(
-            `Ciphertext tersimpan, tetapi ledger belum terkonfirmasi. ` +
-              `ID: ${referralId}. Jangan kirim ulang dengan ID baru; ` +
-              `periksa status transaksi terlebih dahulu.`,
+            `${reason} ID: ${referralId}. ` +
+              "Jangan kirim ulang dengan ID baru; " +
+              "periksa status transaksi terlebih dahulu.",
           );
         }
       }
@@ -71,7 +84,7 @@ export default function Org1Dashboard({
         createdAt: new Date().toISOString(),
       });
       setMessage(
-        import.meta.env.DEV
+        syntheticReferralEnabled
           ? `Rujukan ${referralId} berhasil disimpan ke MinIO dan dicatat di Fabric.`
           : `Rujukan ${referralId} berhasil dienkripsi dalam sesi demo browser.`,
       );
@@ -129,11 +142,28 @@ export default function Org1Dashboard({
         <label>
           Faskes penerima <input value={form.receiverHospital} readOnly />
         </label>
-        {input(
-          "Unit layanan / poli tujuan",
-          "targetUnit",
-          "Poli Penyakit Dalam",
-        )}
+        <label>
+          Unit layanan / poli tujuan
+          <select
+            value={form.targetDepartmentId}
+            onChange={(event) => {
+              const departmentId = event.target.value;
+
+              setForm((prev) => ({
+                ...prev,
+                targetDepartmentId: departmentId,
+                targetUnit: "Poli Umum",
+              }));
+
+              setMessage("");
+              setError("");
+            }}
+          >
+            <option value="poli_umum_org2">
+              Poli Umum — Org2
+            </option>
+          </select>
+        </label>
         <h3>Informasi Klinis (Data Sintetis)</h3>
         {input(
           "Diagnosis kerja / dugaan diagnosis",
