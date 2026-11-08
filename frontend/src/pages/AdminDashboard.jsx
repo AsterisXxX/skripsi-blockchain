@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import {
   getInstitutions,
   getUsers,
+    getDepartments,
+    getDepartmentMemberships,
   getAuditLogs,
   suspendUser,
   reactivateUser,
@@ -15,6 +17,15 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
 
   const [users, setUsers] = useState([]);
+
+  const [departments, setDepartments] = useState([]);
+  const [memberships, setMemberships] = useState([]);
+  const [departmentLoading, setDepartmentLoading] =
+    useState(true);
+  const [membershipLoading, setMembershipLoading] =
+    useState(true);
+  const [departmentError, setDepartmentError] = useState("");
+  const [membershipError, setMembershipError] = useState("");
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState("");
 
@@ -82,6 +93,42 @@ export default function AdminDashboard() {
         if (active) {
           setAuditLoading(false);
         }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    getDepartments()
+      .then((data) => {
+        if (active) {
+          setDepartments(data.departments);
+          setDepartmentError("");
+        }
+      })
+      .catch((error) => {
+        if (active) setDepartmentError(error.message);
+      })
+      .finally(() => {
+        if (active) setDepartmentLoading(false);
+      });
+
+    getDepartmentMemberships()
+      .then((data) => {
+        if (active) {
+          setMemberships(data.memberships);
+          setMembershipError("");
+        }
+      })
+      .catch((error) => {
+        if (active) setMembershipError(error.message);
+      })
+      .finally(() => {
+        if (active) setMembershipLoading(false);
       });
 
     return () => {
@@ -243,6 +290,151 @@ export default function AdminDashboard() {
           </div>
         </>
       )}
+
+        <section
+          className="portal-card"
+          aria-label="Department registry"
+          style={{ marginBottom: "24px" }}
+        >
+          <h3>Department / Poli Registry</h3>
+
+          <p className="muted">
+            Daftar poli berdasarkan registry institusi.
+            Penambahan dan perubahan poli belum diaktifkan.
+          </p>
+
+          {departmentLoading && (
+            <p>Memuat daftar poli...</p>
+          )}
+
+          {departmentError && (
+            <p role="alert">{departmentError}</p>
+          )}
+
+          {!departmentLoading && !departmentError && (
+            <div style={{ overflowX: "auto" }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Poli</th>
+                    <th>ID</th>
+                    <th>Institusi</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {departments.map((department) => (
+                    <tr key={department.id}>
+                      <td>{department.name}</td>
+                      <td>{department.id}</td>
+                      <td>{department.institution_name}</td>
+                      <td>{department.status}</td>
+                    </tr>
+                  ))}
+
+                  {departments.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>Belum ada poli.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+      <section
+        className="portal-card"
+        aria-label="User and role matrix"
+        style={{ marginBottom: "24px" }}
+      >
+        <h3>User & Role Matrix</h3>
+
+        <p className="muted">
+          Ringkasan hak akses pengguna berdasarkan data Admin API.
+          Keanggotaan poli belum tersedia melalui Admin API.
+        </p>
+
+        {usersLoading && (
+          <p className="muted">Memuat matriks pengguna...</p>
+        )}
+
+        {usersError && <p role="alert">{usersError}</p>}
+
+        {!usersLoading && !usersError && (
+          <>
+            <p className="muted">
+              Total pengguna: {users.length}
+            </p>
+
+            <div style={{ overflowX: "auto" }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Role Aktif</th>
+                    <th>Institusi</th>
+                    <th>Status Akun</th>
+                    <th>Akses Poli</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((account) => (
+                    <tr key={account.id}>
+                      <td>{account.username}</td>
+                      <td>{account.roles || "Tidak ada role aktif"}</td>
+                      <td>
+                        {account.institution_id || "Konsorsium"}
+                      </td>
+                      <td>{account.status}</td>
+                      <td>
+                        {membershipLoading ? (
+                    <span className="muted">Memuat...</span>
+                  ) : membershipError ? (
+                    <span role="alert">
+                      Akses poli gagal dimuat
+                    </span>
+                  ) : (
+                    (() => {
+                      const assigned = memberships.filter(
+                        (item) => item.user_id === account.id
+                      );
+
+                      if (assigned.length === 0) {
+                        return (
+                          <span className="muted">
+                            Tidak ada assignment aktif
+                          </span>
+                        );
+                      }
+
+                      return assigned.map((item) => (
+                        <div key={item.assignment_id}>
+                          {item.department_name} —{" "}
+                          {item.can_receive_referral
+                            ? "Diizinkan"
+                            : "Tidak diizinkan"}
+                        </div>
+                      ));
+                    })()
+                  )}
+                      </td>
+                    </tr>
+                  ))}
+
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan={5}>
+                        Tidak ada pengguna terdaftar.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
 
       <div className="portal-grid admin-grid">
         <div className="portal-card">

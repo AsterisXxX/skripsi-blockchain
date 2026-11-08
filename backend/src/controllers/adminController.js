@@ -1,3 +1,9 @@
+import db from "../config/database.js";
+import {
+  findDepartments,
+  findDepartmentMemberships,
+} from "../repositories/departmentReadRepository.js";
+
 import {
   listInstitutions,
   listUsers,
@@ -13,6 +19,36 @@ import {
   revokeStaffRole,
   assignStaffRole,
 } from "../services/adminLifecycleService.js";
+
+export function getDepartments(req, res) {
+  try {
+    const departments = findDepartments(db);
+    return res.json({
+      status: "success",
+      total: departments.length,
+      departments,
+    });
+  } catch {
+    return res.status(500).json({
+      error: "Gagal mengambil daftar poli.",
+    });
+  }
+}
+
+export function getDepartmentMemberships(req, res) {
+  try {
+    const memberships = findDepartmentMemberships(db);
+    return res.json({
+      status: "success",
+      total: memberships.length,
+      memberships,
+    });
+  } catch {
+    return res.status(500).json({
+      error: "Gagal mengambil membership poli.",
+    });
+  }
+}
 
 export function getInstitutions(req, res) {
   try {

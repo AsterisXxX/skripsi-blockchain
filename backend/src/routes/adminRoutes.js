@@ -3,6 +3,8 @@ import {
   getInstitutions,
   getUsers,
   getAuditLogs,
+  getDepartments,
+  getDepartmentMemberships,
   createUser,
   suspendUser,
   reactivateUser,
@@ -21,6 +23,8 @@ router.use(...requireRole("consortium_admin"));
 router.get("/institutions", getInstitutions);
 router.get("/users", getUsers);
 router.get("/audit-logs", getAuditLogs);
+router.get("/departments", getDepartments);
+router.get("/department-memberships", getDepartmentMemberships);
 
 router.post("/users", createUser);
 

@@ -116,3 +116,38 @@ export async function assignUserRole(userId) {
 
   return data;
 }
+
+export async function getDepartments() {
+  const response = await fetch("/api/admin/departments", {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Gagal mengambil daftar poli.");
+  }
+
+  return data;
+}
+
+export async function getDepartmentMemberships() {
+  const response = await fetch(
+    "/api/admin/department-memberships",
+    {
+      method: "GET",
+      credentials: "include",
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || "Gagal mengambil membership poli."
+    );
+  }
+
+  return data;
+}
