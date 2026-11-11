@@ -310,8 +310,9 @@ export default function AdminDashboard() {
           <h3>Department / Poli Registry</h3>
 
           <p className="muted">
-            Daftar poli berdasarkan registry institusi.
-            Penambahan dan perubahan poli belum diaktifkan.
+            Daftar poli aktif berdasarkan institusi penerima.
+            Penambahan poli dilakukan oleh Consortium Admin.
+            Hak akses staf dikelola secara terpisah.
           </p>
 
           {departmentLoading && (
