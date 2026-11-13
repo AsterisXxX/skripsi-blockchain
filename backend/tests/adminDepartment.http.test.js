@@ -161,6 +161,8 @@ mock.module(
         "getDepartments",
         "getDepartmentMemberships",
         "createDepartment",
+        "assignDepartmentToUser",
+        "revokeDepartmentFromUser",
       ].map(name => [name, handler])
     ),
   }
@@ -289,6 +291,65 @@ test("M14 admin department endpoints enforce HTTP RBAC", async () => {
         handlerCalls,
         before + (label === "admin" ? 1 : 0),
         `Controller access mismatch for ${label}`,
+      );
+    }
+
+    // M14: Membership mutations must enforce admin-only RBAC.
+    const membershipMutations = [
+      {
+        method: "POST",
+        path: "/api/admin/department-memberships",
+        body: {
+          userId: "synthetic-staff",
+          departmentId: "poli_umum_org2",
+        },
+      },
+      {
+        method: "PATCH",
+        path: "/api/admin/department-memberships/synthetic-id/revoke",
+      },
+    ];
+
+    for (const mutation of membershipMutations) {
+      for (const [label, cookie, expectedStatus] of [
+        ["anonymous", null, 401],
+        ["org1", org1Cookie, 403],
+        ["org2", org2Cookie, 403],
+        ["admin", adminCookie, 200],
+      ]) {
+        const before = handlerCalls;
+
+        const headers = {};
+        if (cookie) headers.cookie = cookie;
+
+        if (mutation.body) {
+          headers["content-type"] = "application/json";
+        }
+
+        const response = await fetch(base + mutation.path, {
+          method: mutation.method,
+          headers,
+          ...(mutation.body
+            ? { body: JSON.stringify(mutation.body) }
+            : {}),
+        });
+
+        assert.equal(
+          response.status,
+          expectedStatus,
+          `${mutation.method} ${label}: unexpected status`,
+        );
+
+        assert.equal(
+          handlerCalls,
+          before + (label === "admin" ? 1 : 0),
+          `${mutation.method} ${label}: handler access mismatch`,
+        );
+      }
+
+      console.log(
+        `PASS: ${mutation.method} membership - ` +
+        "anonymous 401, Org1/Org2 403, admin handler 200"
       );
     }
 

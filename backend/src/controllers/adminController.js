@@ -1,4 +1,10 @@
 import {
+  assignDepartmentMembership,
+  revokeDepartmentMembership,
+  DepartmentMembershipError,
+} from "../services/departmentMembershipService.js";
+
+import {
   registerDepartment,
   DepartmentManagementError,
 } from "../services/departmentManagementService.js";
@@ -196,6 +202,53 @@ export function assignUserRole(req, res) {
 
     return res.status(500).json({
       error: "Gagal memberikan role pengguna.",
+    });
+  }
+}
+
+export function assignDepartmentToUser(req, res) {
+  try {
+    const result = assignDepartmentMembership(db, {
+      userId: req.body?.userId,
+      departmentId: req.body?.departmentId,
+      actorUserId: req.user?.userId,
+    });
+
+    return res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof DepartmentMembershipError) {
+      return res.status(error.statusCode).json({
+        error: error.message,
+      });
+    }
+
+    console.error("Membership assignment failed:", error.message);
+
+    return res.status(500).json({
+      error: "Gagal memberikan membership poli.",
+    });
+  }
+}
+
+export function revokeDepartmentFromUser(req, res) {
+  try {
+    const result = revokeDepartmentMembership(db, {
+      assignmentId: req.params?.id,
+      actorUserId: req.user?.userId,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof DepartmentMembershipError) {
+      return res.status(error.statusCode).json({
+        error: error.message,
+      });
+    }
+
+    console.error("Membership revocation failed:", error.message);
+
+    return res.status(500).json({
+      error: "Gagal mencabut membership poli.",
     });
   }
 }

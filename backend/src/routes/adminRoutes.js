@@ -5,6 +5,8 @@ import {
   getAuditLogs,
   getDepartments,
   getDepartmentMemberships,
+  assignDepartmentToUser,
+  revokeDepartmentFromUser,
   createDepartment,
   createUser,
   suspendUser,
@@ -27,6 +29,14 @@ router.get("/audit-logs", getAuditLogs);
 router.post("/departments", createDepartment);
 router.get("/departments", getDepartments);
 router.get("/department-memberships", getDepartmentMemberships);
+router.post(
+  "/department-memberships",
+  assignDepartmentToUser
+);
+router.patch(
+  "/department-memberships/:id/revoke",
+  revokeDepartmentFromUser
+);
 
 router.post("/users", createUser);
 
