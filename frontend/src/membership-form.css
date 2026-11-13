@@ -1,0 +1,295 @@
+/* NexusMed M14 — Department Membership UI */
+
+/* Match the existing Create Department card. */
+.admin-dashboard .membership-card {
+  margin: 28px 0 24px !important;
+  padding: 28px;
+  border: 1px solid #d8e7e7;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fff, #f4faf9);
+  box-shadow: 0 5px 20px rgba(15, 65, 70, .05);
+  transition: none;
+}
+
+.admin-dashboard .membership-card:hover {
+  transform: none;
+  border-color: #d8e7e7;
+  background: linear-gradient(135deg, #fff, #f4faf9);
+  box-shadow: 0 5px 20px rgba(15, 65, 70, .05);
+}
+
+.admin-dashboard .membership-card > h3 {
+  margin: 0 0 8px;
+  color: #0d6567;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.admin-dashboard .membership-card > .muted {
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+/* Assignment form */
+.membership-card .membership-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: end;
+  margin: 0;
+}
+
+.membership-card .membership-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.membership-card .membership-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #234e55;
+}
+
+.membership-card .membership-select {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 42px 11px 14px;
+
+  border: 1px solid #d0e0e2;
+  border-radius: 10px;
+
+  background-color: #fff;
+  color: #183b45;
+  font: inherit;
+  font-size: 14px;
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position:
+    calc(100% - 21px) 50%,
+    calc(100% - 15px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.membership-card .membership-select:hover:not(:disabled) {
+  border-color: #0d9488;
+}
+
+.membership-card .membership-select:focus-visible {
+  outline: none;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, .14);
+}
+
+.membership-card .membership-select:disabled {
+  color: #94a3b8;
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.membership-card .membership-submit {
+  grid-column: 1 / -1;
+  justify-self: end;
+
+  min-width: 175px;
+  min-height: 46px;
+  padding: 11px 22px;
+
+  border: 0;
+  border-radius: 10px;
+  background: #0f766e;
+
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+
+  cursor: pointer;
+  transition: background .2s, box-shadow .2s;
+}
+
+.membership-card .membership-submit:hover:not(:disabled) {
+  background: #0b625b;
+}
+
+.membership-card .membership-submit:focus-visible,
+.membership-card .membership-revoke:focus-visible {
+  outline: 3px solid rgba(15, 118, 110, .3);
+  outline-offset: 2px;
+}
+
+.membership-card .membership-submit:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* Section divider */
+.membership-card .membership-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  margin: 28px 0 14px;
+  padding-top: 22px;
+  border-top: 1px solid #dbe7e9;
+}
+
+.membership-card .membership-list-heading h4 {
+  margin: 0;
+  color: #172b4d;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-dashboard .membership-card .membership-count {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 7px 11px;
+
+  border: 1px solid #cde6e1;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #0f766e;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Membership table */
+.membership-card .membership-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-dashboard .membership-card .membership-table {
+  width: 100%;
+  min-width: 640px;
+  margin: 0;
+}
+
+.admin-dashboard .membership-card .membership-table th {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+}
+
+.admin-dashboard .membership-card .membership-table td {
+  vertical-align: middle;
+}
+
+.admin-dashboard .membership-card .membership-table
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-dashboard .membership-card .membership-access-badge {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.admin-dashboard .membership-card
+.membership-access-badge.is-allowed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.admin-dashboard .membership-card
+.membership-access-badge.is-denied {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Destructive action */
+.membership-card .membership-revoke {
+  min-height: 36px;
+  padding: 8px 14px;
+
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  background: #fff7f7;
+  color: #b91c1c;
+
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+}
+
+.membership-card .membership-revoke:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.membership-card .membership-revoke:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.admin-dashboard .membership-card .membership-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: #64748b;
+}
+
+/* Feedback */
+.membership-card [role="status"],
+.membership-card [role="alert"] {
+  display: block;
+  margin: 16px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.membership-card [role="status"] {
+  background: #e9f8f2;
+  color: #13684f;
+}
+
+.membership-card [role="alert"] {
+  background: #fff1f0;
+  color: #a32626;
+}
+
+/* Responsive */
+@media (max-width: 680px) {
+  .admin-dashboard .membership-card {
+    padding: 20px;
+  }
+
+  .membership-card .membership-form {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .membership-card .membership-submit {
+    width: 100%;
+    justify-self: stretch;
+  }
+}

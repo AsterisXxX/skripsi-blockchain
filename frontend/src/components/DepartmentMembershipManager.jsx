@@ -169,7 +169,7 @@ export default function DepartmentMembershipManager({
 
   return (
     <section
-      className="portal-card"
+      className="portal-card membership-card"
       aria-label="Department membership management"
       style={{ marginBottom: "24px" }}
     >
@@ -198,13 +198,14 @@ export default function DepartmentMembershipManager({
         </p>
       )}
 
-      <form onSubmit={handleAssign}>
-        <div>
+      <form className="membership-form" onSubmit={handleAssign}>
+        <div className="membership-field">
           <label htmlFor="membership-user">
             Staf Penerima
           </label>
 
           <select
+            className="membership-select"
             id="membership-user"
             value={userId}
             onChange={(event) => {
@@ -224,12 +225,13 @@ export default function DepartmentMembershipManager({
           </select>
         </div>
 
-        <div>
+        <div className="membership-field">
           <label htmlFor="membership-department">
             Poli Tujuan
           </label>
 
           <select
+            className="membership-select"
             id="membership-department"
             value={departmentId}
             onChange={(event) =>
@@ -252,6 +254,7 @@ export default function DepartmentMembershipManager({
         </div>
 
         <button
+          className="membership-submit"
           type="submit"
           disabled={
             blocked ||
@@ -265,15 +268,20 @@ export default function DepartmentMembershipManager({
         </button>
       </form>
 
-      <h4>Membership Aktif</h4>
+      <div className="membership-list-heading">
+        <h4>Membership Aktif</h4>
+        <span className="membership-count">
+          {memberships.length} membership
+        </span>
+      </div>
 
       {loading && (
         <p className="muted">Memuat membership...</p>
       )}
 
       {!loading && !error && (
-        <div style={{ overflowX: "auto" }}>
-          <table className="table">
+        <div className="membership-table-wrap">
+          <table className="table membership-table">
             <thead>
               <tr>
                 <th>Staf</th>
@@ -292,13 +300,22 @@ export default function DepartmentMembershipManager({
                   <td>{membership.department_name}</td>
 
                   <td>
-                    {membership.can_receive_referral
-                      ? "Diizinkan"
-                      : "Tidak diizinkan"}
+                    <span
+                      className={
+                        membership.can_receive_referral
+                          ? "membership-access-badge is-allowed"
+                          : "membership-access-badge is-denied"
+                      }
+                    >
+                      {membership.can_receive_referral
+                        ? "Diizinkan"
+                        : "Tidak diizinkan"}
+                    </span>
                   </td>
 
                   <td>
                     <button
+                      className="membership-revoke"
                       type="button"
                       disabled={blocked}
                       onClick={() =>
@@ -315,7 +332,10 @@ export default function DepartmentMembershipManager({
 
               {memberships.length === 0 && (
                 <tr>
-                  <td colSpan={5}>
+                  <td
+                    colSpan={5}
+                    className="membership-empty"
+                  >
                     Belum ada membership aktif.
                   </td>
                 </tr>
