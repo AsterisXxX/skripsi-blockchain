@@ -12,6 +12,7 @@ import {
   assignUserRole,
 } from "../services/adminApi";
 import CreateDepartmentForm from "../components/CreateDepartmentForm";
+import DepartmentMembershipManager from "../components/DepartmentMembershipManager";
 
 export default function AdminDashboard() {
   const [institutions, setInstitutions] = useState([]);
@@ -137,6 +138,41 @@ export default function AdminDashboard() {
       active = false;
     };
   }, []);
+
+  async function refreshDepartmentMemberships() {
+    // A successful mutation must not be retried if refresh fails.
+    // Fetch all related datasets before updating displayed state.
+    try {
+      const [latestMemberships, latestUsers, latestAudit] =
+        await Promise.all([
+          getDepartmentMemberships(),
+          getUsers(),
+          getAuditLogs(),
+        ]);
+
+      if (
+        !Array.isArray(latestMemberships.memberships) ||
+        !Array.isArray(latestUsers.users) ||
+        !Array.isArray(latestAudit.logs)
+      ) {
+        throw new Error("Respons refresh admin tidak valid.");
+      }
+
+      setMemberships(latestMemberships.memberships);
+      setUsers(latestUsers.users);
+      setAuditLogs(latestAudit.logs);
+
+      setMembershipError("");
+      setUsersError("");
+      setAuditError("");
+    } catch (error) {
+      setMembershipError(
+        "Daftar membership gagal diperbarui. " +
+        "Muat ulang halaman sebelum perubahan berikutnya."
+      );
+      throw error;
+    }
+  }
 
   async function handleUserStatus(user) {
     if (actionUserId) return;
@@ -354,6 +390,23 @@ export default function AdminDashboard() {
             </div>
           )}
         </section>
+
+      <DepartmentMembershipManager
+        users={users}
+        departments={departments}
+        memberships={memberships}
+        loading={
+          usersLoading ||
+          departmentLoading ||
+          membershipLoading
+        }
+        error={
+          usersError ||
+          departmentError ||
+          membershipError
+        }
+        onChanged={refreshDepartmentMemberships}
+      />
 
       <section
         className="portal-card"

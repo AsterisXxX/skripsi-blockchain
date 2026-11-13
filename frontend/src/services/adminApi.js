@@ -170,3 +170,50 @@ export async function createDepartment(payload) {
 
   return data;
 }
+
+export async function assignDepartmentMembership({
+  userId,
+  departmentId,
+}) {
+  const response = await fetch(
+    "/api/admin/department-memberships",
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId, departmentId }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || "Gagal memberikan membership poli."
+    );
+  }
+
+  return data;
+}
+
+export async function revokeDepartmentMembership(assignmentId) {
+  const response = await fetch(
+    `/api/admin/department-memberships/${encodeURIComponent(assignmentId)}/revoke`,
+    {
+      method: "PATCH",
+      credentials: "include",
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || "Gagal mencabut membership poli."
+    );
+  }
+
+  return data;
+}
