@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { convertToFHIR } from "../utils/fhirConverter";
 import { encryptFHIR } from "../services/cryptoService";
-import { uploadReferral } from "../services/api";
+import { getReferralDepartments, uploadReferral } from "../services/api";
 
 const syntheticReferralEnabled =
   import.meta.env.DEV ||
@@ -14,8 +14,8 @@ const initial = {
   patientName: "",
   senderHospital: "Org1 - FKTP",
   receiverHospital: "Org2 - FKRTL",
-  targetUnit: "Poli Umum",
-  targetDepartmentId: "poli_umum_org2",
+  targetUnit: "",
+  targetDepartmentId: "",
   diagnosis: "",
   complaints: "",
   examination: "",
@@ -34,6 +34,54 @@ export default function Org1Dashboard({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDepartments() {
+      try {
+        const available = await getReferralDepartments();
+
+        if (!active) return;
+
+        setDepartments(available);
+
+        if (available.length === 0) {
+          setDepartmentsError("Tidak ada poli tujuan yang tersedia.");
+          return;
+        }
+
+        setForm((previous) => {
+          const selected = available.find(
+            (item) => item.id === previous.targetDepartmentId
+          );
+
+          return {
+            ...previous,
+            targetDepartmentId: selected?.id ?? "",
+            targetUnit: selected?.name ?? "",
+          };
+        });
+      } catch {
+        if (active) {
+          setDepartmentsError(
+            "Gagal mengambil daftar poli. Muat ulang halaman untuk mencoba lagi."
+          );
+        }
+      } finally {
+        if (active) setDepartmentsLoading(false);
+      }
+    }
+
+    loadDepartments();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -48,6 +96,19 @@ export default function Org1Dashboard({
     setBusy(true);
     try {
       if (!receiverPublicKey) throw new Error("Kunci publik Org2 belum siap.");
+
+      const selectedDepartment = departments.find(
+        (item) => item.id === form.targetDepartmentId
+      );
+
+      if (
+        departmentsLoading ||
+        departmentsError ||
+        !selectedDepartment ||
+        form.targetUnit !== selectedDepartment.name
+      ) {
+        throw new Error("Poli tujuan belum valid. Muat ulang halaman.");
+      }
       const fhir = convertToFHIR(form);
       const payload = await encryptFHIR(fhir, receiverPublicKey);
       const referralId = form.referralId.trim();
@@ -88,7 +149,11 @@ export default function Org1Dashboard({
           ? `Rujukan ${referralId} berhasil disimpan ke MinIO dan dicatat di Fabric.`
           : `Rujukan ${referralId} berhasil dienkripsi dalam sesi demo browser.`,
       );
-      setForm(initial);
+      setForm({
+        ...initial,
+        targetDepartmentId: selectedDepartment.id,
+        targetUnit: selectedDepartment.name,
+      });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -146,23 +211,43 @@ export default function Org1Dashboard({
           Unit layanan / poli tujuan
           <select
             value={form.targetDepartmentId}
+            required
+            disabled={busy || departmentsLoading || departments.length === 0}
             onChange={(event) => {
-              const departmentId = event.target.value;
+              const selected = departments.find(
+                (item) => item.id === event.target.value
+              );
 
-              setForm((prev) => ({
-                ...prev,
-                targetDepartmentId: departmentId,
-                targetUnit: "Poli Umum",
+              if (!selected) return;
+
+              setForm((previous) => ({
+                ...previous,
+                targetDepartmentId: selected.id,
+                targetUnit: selected.name,
               }));
 
               setMessage("");
               setError("");
             }}
           >
-            <option value="poli_umum_org2">
-              Poli Umum — Org2
+            <option value="">
+              {departmentsLoading
+                ? "Memuat daftar poli..."
+                : departments.length === 0
+                  ? "Tidak ada poli tersedia"
+                  : "Pilih poli tujuan"}
             </option>
+            {departments.map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.name} — Org2
+              </option>
+            ))}
           </select>
+          {departmentsError && (
+            <span role="alert" className="error">
+              {departmentsError}
+            </span>
+          )}
         </label>
         <h3>Informasi Klinis (Data Sintetis)</h3>
         {input(
@@ -221,7 +306,16 @@ export default function Org1Dashboard({
           Checkbox ini bukan bukti informed consent klinis dan tidak disimpan
           sebagai resource FHIR Consent.
         </p>
-        <button type="submit" disabled={busy || !receiverPublicKey}>
+        <button type="submit" disabled={
+            busy ||
+            !receiverPublicKey ||
+            departmentsLoading ||
+            Boolean(departmentsError) ||
+            departments.length === 0 ||
+            !departments.some(
+              (item) => item.id === form.targetDepartmentId
+            )
+          }>
           {busy ? "Mengenkripsi & menyimpan..." : "Kirim Rujukan (Simulasi)"}
         </button>
       </form>
@@ -241,9 +335,9 @@ export default function Org1Dashboard({
         </div>
       )}
       <p className="muted small-note">
-        Mode development mengunggah ciphertext ke MinIO; mode web statis
-        menyimpan data hanya di browser. Verifikasi ledger Fabric belum
-        terintegrasi.
+        Formulir ini digunakan untuk pengujian dengan data sintetis.
+        Saat pengiriman hybrid diaktifkan, ciphertext disimpan ke MinIO
+        dan hash rujukan dicatat serta diverifikasi melalui Fabric.
       </p>
     </section>
   );

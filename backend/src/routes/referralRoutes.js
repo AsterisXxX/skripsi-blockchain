@@ -19,6 +19,10 @@ import {
   getReferralFromFabric,
 } from "../services/fabricService.js";
 
+import {
+  findAvailableReferralDepartments,
+} from "../repositories/referralDepartmentRepository.js";
+
 const router = Router();
 
 const validId = (id) => /^[A-Za-z0-9_-]{1,80}$/.test(id);
@@ -53,6 +57,26 @@ router.get("/storage/health", async (req, res) => {
     });
   }
 });
+
+router.get(
+  "/referral-departments",
+  ...requireRole("org1"),
+  (req, res) => {
+    try {
+      const departments = findAvailableReferralDepartments(db);
+
+      return res.json({
+        status: "success",
+        departments,
+      });
+    } catch (error) {
+      console.error("Department discovery failed:", error.message);
+      return res.status(503).json({
+        error: "Daftar poli tujuan tidak tersedia.",
+      });
+    }
+  },
+);
 
 router.post("/referrals", requireRole("org1"), async (req, res) => {
   try {

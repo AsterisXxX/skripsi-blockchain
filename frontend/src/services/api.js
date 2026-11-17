@@ -50,6 +50,27 @@ export async function logout() {
   });
 }
 
+export async function getReferralDepartments() {
+  const result = await request("/referral-departments");
+
+  if (
+    result.status !== "success" ||
+    !Array.isArray(result.departments) ||
+    !result.departments.every(
+      (item) =>
+        typeof item.id === "string" &&
+        item.id.length > 0 &&
+        typeof item.name === "string" &&
+        item.name.trim().length > 0 &&
+        item.institution_id === "org2"
+    )
+  ) {
+    throw new Error("Respons daftar poli tujuan tidak valid.");
+  }
+
+  return result.departments;
+}
+
 export async function uploadReferral(referralId, payload, patientId, targetDepartmentId) {
   if (!syntheticReferralEnabled) {
     throw new Error("Upload MinIO hanya tersedia pada development lokal.");
